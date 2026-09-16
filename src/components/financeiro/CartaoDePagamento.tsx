@@ -23,10 +23,14 @@ const SITUACAO: Record<ChargeStatus, { texto: string; tom: "verde" | "ambar" | "
 export function CartaoDePagamento({
   cobranca,
   acao,
+  rodape,
   className,
 }: {
   cobranca: Charge;
+  /** Botao curto, exibido na propria linha. */
   acao?: React.ReactNode;
+  /** Conteudo largo (como o painel do PIX), exibido abaixo da linha. */
+  rodape?: React.ReactNode;
   className?: string;
 }) {
   const situacao = SITUACAO[cobranca.status];
@@ -35,11 +39,12 @@ export function CartaoDePagamento({
   return (
     <div
       className={cn(
-        "flex items-center gap-3 rounded-xl border border-linha bg-carvao/50 p-3",
+        "rounded-xl border border-linha bg-carvao/50 p-3",
         cobranca.status === "expired" && "border-vermelho/30",
         className,
       )}
     >
+      <div className="flex items-center gap-3">
       <span aria-hidden className="text-xl">
         {ICONE[cobranca.type]}
       </span>
@@ -59,6 +64,8 @@ export function CartaoDePagamento({
       </div>
 
       {acao}
+      </div>
+      {rodape}
     </div>
   );
 }

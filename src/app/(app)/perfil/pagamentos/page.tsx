@@ -5,6 +5,7 @@ import { mensalidadesDoJogador } from "@/server/services/mensalidades";
 import { Cartao, CabecalhoCartao } from "@/components/ui/Cartao";
 import { EstadoVazio } from "@/components/ui/Estados";
 import { CartaoDePagamento } from "@/components/financeiro/CartaoDePagamento";
+import { PagarComPix } from "@/components/financeiro/PagarComPix";
 import { Selo } from "@/components/ui/Selo";
 import { formatarDinheiro, mesAno } from "@/lib/format";
 
@@ -39,9 +40,13 @@ export default async function PaginaMeusPagamentos() {
       {emAberto.length > 0 && (
         <Cartao>
           <CabecalhoCartao titulo={`A pagar (${emAberto.length})`} />
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-3">
             {emAberto.map((cobranca) => (
-              <CartaoDePagamento key={cobranca.id} cobranca={cobranca} />
+              <CartaoDePagamento
+                key={cobranca.id}
+                cobranca={cobranca}
+                rodape={<PagarComPix cobrancaId={cobranca.id} />}
+              />
             ))}
           </div>
         </Cartao>

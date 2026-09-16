@@ -512,6 +512,22 @@ export type Database = {
         Returns: number;
       };
       consolidar_convidados: { Args: { p_round_id: string }; Returns: RoundGuest[] };
+      confirmar_pagamento: {
+        Args: {
+          p_provider: string;
+          p_provider_payment_id: string;
+          p_status: PaymentStatus;
+          p_paid_at: string | null;
+          p_raw: Json | null;
+        };
+        Returns: {
+          mudou: boolean;
+          charge_id: string | null;
+          profile_id: string | null;
+          amount_cents: number | null;
+          descricao: string | null;
+        };
+      };
     };
     Enums: {
       user_role: UserRole;
