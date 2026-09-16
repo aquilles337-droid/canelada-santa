@@ -2,7 +2,8 @@ import "server-only";
 
 import { clienteAdmin } from "@/lib/supabase/admin";
 import { erroDeRegra } from "@/lib/erros";
-import type { Season, Settings } from "@/lib/supabase/tipos";
+import { fimDaTemporada, inicioDaTemporada, nomeDaTemporada } from "@/domain/temporada";
+import type { Season } from "@/lib/supabase/tipos";
 import { lerConfiguracoes } from "./configuracoes";
 
 /**
@@ -12,20 +13,6 @@ import { lerConfiguracoes } from "./configuracoes";
  * nunca e apagado: cria-se uma temporada nova e as estatisticas passam a ser
  * contadas nela, enquanto o acumulado de todos os tempos continua intacto.
  */
-
-/** Data de inicio da temporada que contem a data informada. */
-export function inicioDaTemporada(referencia: Date, configuracoes: Settings): Date {
-  const ano = referencia.getUTCFullYear();
-  const virada = Date.UTC(ano, configuracoes.season_start_month - 1, configuracoes.season_start_day);
-
-  if (referencia.getTime() >= virada) return new Date(virada);
-
-  return new Date(Date.UTC(ano - 1, configuracoes.season_start_month - 1, configuracoes.season_start_day));
-}
-
-function somarUmAno(data: Date): Date {
-  return new Date(Date.UTC(data.getUTCFullYear() + 1, data.getUTCMonth(), data.getUTCDate()));
-}
 
 function comoDataISO(data: Date): string {
   return data.toISOString().slice(0, 10);
@@ -66,13 +53,12 @@ export async function garantirTemporadaAtual(referencia: Date = new Date()): Pro
   // uma temporada corrente por vez.
   await clienteAdmin().from("seasons").update({ is_current: false }).eq("is_current", true);
 
-  const fim = new Date(somarUmAno(inicio).getTime() - 86_400_000);
   const { data: criada, error } = await clienteAdmin()
     .from("seasons")
     .insert({
-      name: `Temporada ${inicio.getUTCFullYear()}`,
+      name: nomeDaTemporada(inicio),
       starts_on: inicioISO,
-      ends_on: comoDataISO(fim),
+      ends_on: comoDataISO(fimDaTemporada(inicio)),
       is_current: true,
     })
     .select("*")

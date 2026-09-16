@@ -6,7 +6,9 @@ import { Cartao, CabecalhoCartao } from "@/components/ui/Cartao";
 import { Selo } from "@/components/ui/Selo";
 import { formatarData } from "@/lib/format";
 import { formatarTelefone } from "@/lib/phone";
+import Link from "next/link";
 import { cobrancasEmAberto } from "@/server/services/cobrancas";
+import { Botao } from "@/components/ui/Botao";
 import { ResumoFinanceiro } from "@/components/financeiro/CartaoDePagamento";
 import { FormularioPerfil } from "./FormularioPerfil";
 import { BotaoSair } from "./BotaoSair";
@@ -50,6 +52,22 @@ export default async function PaginaPerfil() {
       <Cartao>
         <CabecalhoCartao titulo="Meus dados" />
         <FormularioPerfil perfil={perfil} />
+      </Cartao>
+
+      <Cartao>
+        <CabecalhoCartao titulo="Atalhos" />
+        <div className="flex flex-col gap-2">
+          <Link href="/avaliar">
+            <Botao variante="escuro" larguraTotal>
+              Avaliar jogadores
+            </Botao>
+          </Link>
+          <Link href="/perfil/pagamentos">
+            <Botao variante="escuro" larguraTotal>
+              Meus pagamentos
+            </Botao>
+          </Link>
+        </div>
       </Cartao>
 
       <Cartao>

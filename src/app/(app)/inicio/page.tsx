@@ -5,12 +5,15 @@ import { usuarioAtual } from "@/server/auth/sessao";
 import { carregarRodada, proximaRodada } from "@/server/services/rodadas";
 import { montarEstadoDePresenca } from "@/server/services/presenca";
 import { cobrancasEmAberto } from "@/server/services/cobrancas";
+import { estatisticasDoJogador, montarRanking } from "@/server/services/estatisticas";
 import { CartaoDaRodada } from "@/components/rodada/CartaoDaRodada";
 import { BotoesDePresenca } from "@/components/rodada/BotoesDePresenca";
 import { Cartao, CabecalhoCartao } from "@/components/ui/Cartao";
 import { EstadoVazio } from "@/components/ui/Estados";
 import { Brasao } from "@/components/brand/Brasao";
 import { ResumoFinanceiro } from "@/components/financeiro/CartaoDePagamento";
+import { Selo } from "@/components/ui/Selo";
+import { formatarPercentual, plural } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Início" };
 
@@ -18,8 +21,41 @@ export default async function PaginaInicio() {
   const perfil = await usuarioAtual();
   if (!perfil) redirect("/entrar");
 
-  const [proxima, emAberto] = await Promise.all([proximaRodada(), cobrancasEmAberto(perfil.id)]);
+  const [proxima, emAberto, minhas, ranking] = await Promise.all([
+    proximaRodada(),
+    cobrancasEmAberto(perfil.id),
+    estatisticasDoJogador(perfil.id),
+    montarRanking("presencas"),
+  ]);
+
   const totalEmAberto = emAberto.reduce((soma, c) => soma + c.amount_cents, 0);
+  const minhaPosicao = ranking.findIndex((l) => l.profileId === perfil.id) + 1;
+
+  const meusNumeros = (
+    <div className="grid grid-cols-2 gap-3">
+      <Cartao className="text-center">
+        <p className="text-[10px] uppercase tracking-widest text-cinza">Sua sequência</p>
+        <p className="titulo-display mt-1 text-3xl">
+          <span aria-hidden>🔥</span> {minhas.sequenciaAtual}
+        </p>
+        <p className="text-[11px] text-cinza-escuro">
+          {plural(minhas.sequenciaAtual, "racha seguido", "rachas seguidos")}
+        </p>
+      </Cartao>
+
+      <Cartao className="text-center">
+        <p className="text-[10px] uppercase tracking-widest text-cinza">Seu ranking</p>
+        <p className="titulo-display mt-1 text-3xl texto-ouro">
+          {minhaPosicao > 0 ? `#${minhaPosicao}` : "—"}
+        </p>
+        <p className="text-[11px] text-cinza-escuro">
+          {minhas.presencas > 0
+            ? `${formatarPercentual(minhas.assiduidade)} de presença`
+            : "Jogue seu primeiro racha"}
+        </p>
+      </Cartao>
+    </div>
+  );
 
   if (!proxima) {
     return (
@@ -41,6 +77,9 @@ export default async function PaginaInicio() {
         </Cartao>
 
         <ResumoFinanceiro totalEmAbertoCentavos={totalEmAberto} />
+
+      {meusNumeros}
+        {meusNumeros}
       </div>
     );
   }
@@ -60,6 +99,7 @@ export default async function PaginaInicio() {
         <h1 className="titulo-display text-xl">
           Olá, <span className="texto-ouro">{perfil.full_name.split(" ")[0]}</span>
         </h1>
+        {perfil.is_member ? <Selo tom="ouro">Mensalista</Selo> : <Selo tom="neutro">Avulso</Selo>}
       </div>
 
       <CartaoDaRodada rodada={proxima} confirmados={confirmados} esperando={esperando} destaque>
@@ -76,6 +116,8 @@ export default async function PaginaInicio() {
       </Link>
 
       <ResumoFinanceiro totalEmAbertoCentavos={totalEmAberto} />
+
+      {meusNumeros}
     </div>
   );
 }

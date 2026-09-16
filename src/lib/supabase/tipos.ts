@@ -437,6 +437,61 @@ export type VRoundVoteTally = {
   votes: number;
 }
 
+export type VResultadoPorJogador = {
+  profile_id: string;
+  round_id: string;
+  season_id: string;
+  match_id: string;
+  desfecho: "vitoria" | "empate" | "derrota";
+}
+
+export type VParticipacaoEmGols = {
+  profile_id: string;
+  round_id: string;
+  season_id: string;
+  gols: number;
+  assistencias: number;
+  gols_contra: number;
+}
+
+export type VEleitoDaRodada = {
+  round_id: string;
+  season_id: string;
+  kind: VoteKind;
+  profile_id: string;
+  votos: number;
+}
+
+export type VRodadaApta = {
+  profile_id: string;
+  round_id: string;
+  season_id: string;
+}
+
+export type VEstatisticasPorTemporada = {
+  profile_id: string;
+  season_id: string;
+  rodadas_aptas: number;
+  presencas: number;
+  faltas: number;
+  faltas_justificadas: number;
+  gols: number;
+  assistencias: number;
+  vitorias: number;
+  derrotas: number;
+  empates: number;
+  craques: number;
+  bagres: number;
+}
+
+export type VPresencaEmOrdem = {
+  profile_id: string;
+  season_id: string;
+  round_id: string;
+  starts_at: string;
+  attendance: AttendanceStatus;
+}
+
 export type VPlayerEffectiveRating = {
   profile_id: string;
   votes_count: number;
@@ -485,6 +540,12 @@ export type Database = {
       v_player_rating: Visao<VPlayerRating>;
       v_round_vote_tally: Visao<VRoundVoteTally>;
       v_player_effective_rating: Visao<VPlayerEffectiveRating>;
+      v_resultados_por_jogador: Visao<VResultadoPorJogador>;
+      v_participacoes_em_gols: Visao<VParticipacaoEmGols>;
+      v_eleitos_da_rodada: Visao<VEleitoDaRodada>;
+      v_rodadas_aptas: Visao<VRodadaApta>;
+      v_estatisticas_por_temporada: Visao<VEstatisticasPorTemporada>;
+      v_presencas_em_ordem: Visao<VPresencaEmOrdem>;
     };
     Functions: {
       vagas_ocupadas: { Args: { p_round_id: string }; Returns: number };
