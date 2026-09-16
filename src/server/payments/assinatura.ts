@@ -29,7 +29,7 @@ export function partesDaAssinatura(cabecalho: string): Record<string, string> {
         if (separador < 0) return ["", ""];
         return [parte.slice(0, separador).trim(), parte.slice(separador + 1).trim()];
       })
-      .filter(([chave]) => chave.length > 0),
+      .filter(([chave]) => (chave ?? "").length > 0),
   );
 }
 

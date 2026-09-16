@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { exigirAdmin } from "@/server/auth/sessao";
 import { carregarRodada, nomeDaRodada } from "@/server/services/rodadas";
+import { textoParaWhatsapp, timesDaRodada } from "@/server/services/times";
 import { CartaoDaRodada } from "@/components/rodada/CartaoDaRodada";
 import { Cartao, CabecalhoCartao } from "@/components/ui/Cartao";
 import { Avatar } from "@/components/ui/Avatar";
@@ -9,6 +10,7 @@ import { Selo } from "@/components/ui/Selo";
 import { EstadoVazio } from "@/components/ui/Estados";
 import { ErroDeRegra } from "@/lib/erros";
 import { formatarHora } from "@/lib/format";
+import { PainelDeTimes } from "@/components/times/PainelDeTimes";
 import { AcoesDaRodada } from "./AcoesDaRodada";
 import { RemoverJogador } from "./RemoverJogador";
 
@@ -39,6 +41,7 @@ export default async function PaginaAdminRodada({ params }: { params: Promise<{ 
   }
 
   const { rodada, participantes } = dados;
+  const times = await timesDaRodada(id);
   const confirmados = participantes.filter((p) => p.status === "confirmed");
   const chamados = participantes.filter((p) => p.status === "invited");
   const esperando = participantes.filter((p) => p.status === "waiting");
@@ -56,6 +59,15 @@ export default async function PaginaAdminRodada({ params }: { params: Promise<{ 
       >
         <AcoesDaRodada rodadaId={rodada.id} situacao={rodada.status} />
       </CartaoDaRodada>
+
+      <Cartao>
+        <CabecalhoCartao titulo="Times" icone={<span aria-hidden>🎽</span>} />
+        <PainelDeTimes
+          rodadaId={rodada.id}
+          times={times}
+          textoParaCompartilhar={textoParaWhatsapp(nomeDaRodada(rodada), times)}
+        />
+      </Cartao>
 
       <Cartao>
         <CabecalhoCartao titulo={`Confirmados (${confirmados.length}/${rodada.capacity})`} />
