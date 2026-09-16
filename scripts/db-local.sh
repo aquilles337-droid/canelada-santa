@@ -59,5 +59,8 @@ run "$PSQL -d $DB -f '$ROOT/supabase/seed.sql'"
 echo "→ rodando asserções de schema"
 run "$PSQL -d $DB -f '$ROOT/supabase/test/10_schema_assertions.sql'"
 
+echo "→ rodando asserções da lista de espera"
+run "$PSQL -d $DB -f '$ROOT/supabase/test/20_presenca_assertions.sql'"
+
 echo ""
 echo "✓ banco validado: migrations, seed e asserções passaram."

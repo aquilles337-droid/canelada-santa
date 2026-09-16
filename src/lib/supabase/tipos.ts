@@ -483,7 +483,28 @@ export type Database = {
       v_round_vote_tally: Visao<VRoundVoteTally>;
       v_player_effective_rating: Visao<VPlayerEffectiveRating>;
     };
-    Functions: { [_ in never]: never };
+    Functions: {
+      vagas_ocupadas: { Args: { p_round_id: string }; Returns: number };
+      reservar_vaga: {
+        Args: {
+          p_round_id: string;
+          p_profile_id: string;
+          p_kind: ParticipantKind;
+          p_tier: number;
+          p_pode_ocupar_vaga: boolean;
+        };
+        Returns: RoundParticipant;
+      };
+      aceitar_vaga: { Args: { p_participant_id: string }; Returns: RoundParticipant };
+      promover_fila: {
+        Args: { p_round_id: string; p_permitir_avulsos: boolean; p_expira_em: string };
+        Returns: RoundParticipant[];
+      };
+      expirar_convites_de_vaga: {
+        Args: { p_round_id?: string | null };
+        Returns: RoundParticipant[];
+      };
+    };
     Enums: {
       user_role: UserRole;
       member_status: MemberStatus;

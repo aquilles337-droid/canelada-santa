@@ -8,9 +8,14 @@ export const LOCALE = "pt-BR";
 
 const moeda = new Intl.NumberFormat(LOCALE, { style: "currency", currency: "BRL" });
 
-/** Centavos inteiros → "R$ 25,00". Dinheiro nunca trafega como decimal. */
+/**
+ * Centavos inteiros → "R$ 25,00". Dinheiro nunca trafega como decimal.
+ *
+ * O Intl separa "R$" do valor com espaco nao separavel; trocamos por espaco
+ * comum para o texto continuar igual ao ser colado no WhatsApp.
+ */
 export function formatarDinheiro(centavos: number): string {
-  return moeda.format(centavos / 100);
+  return moeda.format(centavos / 100).replace(/\u00a0/g, " ");
 }
 
 /** "25", "25,50", "R$ 25,50" → 2550 centavos. Retorna null se nao der. */
@@ -93,9 +98,15 @@ export function formatarPercentual(fracao: number): string {
   return `${(fracao * 100).toFixed(1).replace(".", ",")}%`;
 }
 
-/** Nota do jogador: 7,4 */
+/**
+ * Nota do jogador: 7,4.
+ *
+ * O epsilon corrige o arredondamento binario — sem ele, 7,35 vira 7,3
+ * porque o numero guardado na memoria e 7,34999...
+ */
 export function formatarNota(nota: number): string {
-  return nota.toFixed(1).replace(".", ",");
+  const arredondada = Math.round((nota + Number.EPSILON) * 10) / 10;
+  return arredondada.toFixed(1).replace(".", ",");
 }
 
 /** "João Pedro da Silva" → "João Silva", para caber no cartao. */
