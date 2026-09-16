@@ -11,6 +11,8 @@ import { EstadoVazio } from "@/components/ui/Estados";
 import { ErroDeRegra } from "@/lib/erros";
 import { formatarHora } from "@/lib/format";
 import { PainelDeTimes } from "@/components/times/PainelDeTimes";
+import Link from "next/link";
+import { Botao } from "@/components/ui/Botao";
 import { AcoesDaRodada } from "./AcoesDaRodada";
 import { RemoverJogador } from "./RemoverJogador";
 
@@ -59,6 +61,19 @@ export default async function PaginaAdminRodada({ params }: { params: Promise<{ 
       >
         <AcoesDaRodada rodadaId={rodada.id} situacao={rodada.status} />
       </CartaoDaRodada>
+
+      <div className="grid grid-cols-2 gap-2">
+        <Link href={`/admin/rodadas/${rodada.id}/jogo`}>
+          <Botao variante="escuro" larguraTotal>
+            Modo jogo
+          </Botao>
+        </Link>
+        <Link href={`/racha/${rodada.id}/times`}>
+          <Botao variante="escuro" larguraTotal>
+            Ver times
+          </Botao>
+        </Link>
+      </div>
 
       <Cartao>
         <CabecalhoCartao titulo="Times" icone={<span aria-hidden>🎽</span>} />
