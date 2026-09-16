@@ -101,6 +101,9 @@ export type Settings = {
   season_start_day: number;
   block_on_debt: boolean;
   recurring_card_enabled: boolean;
+  cancel_match_charge_on_withdrawal: boolean;
+  keep_match_charge_on_no_show: boolean;
+  monthly_generation_day: number;
   team_weights: PesosDeTime;
   group_name: string;
   updated_by: string | null;
@@ -504,6 +507,11 @@ export type Database = {
         Args: { p_round_id?: string | null };
         Returns: RoundParticipant[];
       };
+      convidados_usados_no_mes: {
+        Args: { p_host_profile_id: string; p_competencia: string };
+        Returns: number;
+      };
+      consolidar_convidados: { Args: { p_round_id: string }; Returns: RoundGuest[] };
     };
     Enums: {
       user_role: UserRole;

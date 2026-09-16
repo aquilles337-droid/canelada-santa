@@ -4,11 +4,13 @@ import { redirect } from "next/navigation";
 import { usuarioAtual } from "@/server/auth/sessao";
 import { carregarRodada, proximaRodada } from "@/server/services/rodadas";
 import { montarEstadoDePresenca } from "@/server/services/presenca";
+import { cobrancasEmAberto } from "@/server/services/cobrancas";
 import { CartaoDaRodada } from "@/components/rodada/CartaoDaRodada";
 import { BotoesDePresenca } from "@/components/rodada/BotoesDePresenca";
 import { Cartao, CabecalhoCartao } from "@/components/ui/Cartao";
 import { EstadoVazio } from "@/components/ui/Estados";
 import { Brasao } from "@/components/brand/Brasao";
+import { ResumoFinanceiro } from "@/components/financeiro/CartaoDePagamento";
 
 export const metadata: Metadata = { title: "Início" };
 
@@ -16,7 +18,8 @@ export default async function PaginaInicio() {
   const perfil = await usuarioAtual();
   if (!perfil) redirect("/entrar");
 
-  const proxima = await proximaRodada();
+  const [proxima, emAberto] = await Promise.all([proximaRodada(), cobrancasEmAberto(perfil.id)]);
+  const totalEmAberto = emAberto.reduce((soma, c) => soma + c.amount_cents, 0);
 
   if (!proxima) {
     return (
@@ -36,6 +39,8 @@ export default async function PaginaInicio() {
             descricao="Quando a próxima rodada abrir, ela aparece aqui e você recebe um aviso."
           />
         </Cartao>
+
+        <ResumoFinanceiro totalEmAbertoCentavos={totalEmAberto} />
       </div>
     );
   }
@@ -69,6 +74,8 @@ export default async function PaginaInicio() {
           </span>
         </Cartao>
       </Link>
+
+      <ResumoFinanceiro totalEmAbertoCentavos={totalEmAberto} />
     </div>
   );
 }

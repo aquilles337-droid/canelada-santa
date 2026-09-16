@@ -12,7 +12,9 @@ import {
 import { janelaDeAvulsosAberta, prazoParaAceitarVaga } from "@/domain/fila";
 import { faixaDe } from "@/domain/tipos";
 import type { Profile, RoundParticipant } from "@/lib/supabase/tipos";
+import { chaveDeCobranca } from "@/domain/cobrancas";
 import { registrarAuditoria } from "./auditoria";
+import { cancelarCobranca, cobrarAvulso, cobrarMulta } from "./cobrancas";
 import { lerConfiguracoes } from "./configuracoes";
 import { notificar } from "./notificacoes";
 import {
@@ -117,6 +119,12 @@ export async function confirmarPresenca(
   const participacao = data;
   const entrouNaVaga = participacao.status === "confirmed";
 
+  // Avulso que ocupou vaga ja fica devendo o jogo. A cobranca e idempotente:
+  // entrar e sair varias vezes nao multiplica o valor.
+  if (entrouNaVaga && !perfil.is_member) {
+    await cobrarAvulso(rodada, perfil);
+  }
+
   return {
     participacao,
     entrouNaVaga,
@@ -183,6 +191,23 @@ export async function cancelarPresenca(
     throw erroDeRegra("servico_indisponivel", "Não foi possível retirar seu nome agora.");
   }
 
+  const configuracoes = await lerConfiguracoes();
+
+  // Desistir em cima da hora gera a multa da rodada.
+  if (avaliacao.geraMulta) {
+    await cobrarMulta(rodada, perfil, "late_cancel", avaliacao.valorCentavos);
+  }
+
+  // A cobranca do jogo avulso some com a desistencia, quando o grupo
+  // configurou assim. A multa, quando existe, continua valendo.
+  if (configuracoes.cancel_match_charge_on_withdrawal) {
+    await cancelarCobranca(
+      chaveDeCobranca("match", { rodadaId, profileId: perfil.id }),
+      perfil.id,
+      "jogador retirou o nome",
+    );
+  }
+
   // A vaga que abriu chama a proxima pessoa da fila imediatamente.
   if (ocupavaVaga) {
     await promoverFilaDaRodada(rodadaId);
@@ -208,6 +233,11 @@ export async function aceitarVaga(rodadaId: string, perfil: Profile): Promise<Ro
       throw erroDeRegra("prazo_expirado", "O prazo para aceitar a vaga acabou.");
     }
     throw erroDeRegra("servico_indisponivel", "Não foi possível aceitar a vaga agora.");
+  }
+
+  if (!perfil.is_member) {
+    const { rodada } = await carregarRodada(rodadaId);
+    await cobrarAvulso(rodada, perfil);
   }
 
   return data;

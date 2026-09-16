@@ -3,9 +3,11 @@ import { notFound } from "next/navigation";
 import { exigirUsuario } from "@/server/auth/sessao";
 import { carregarRodada, nomeDaRodada } from "@/server/services/rodadas";
 import { montarEstadoDePresenca } from "@/server/services/presenca";
+import { situacaoDaCota } from "@/server/services/convidados";
 import { CartaoDaRodada } from "@/components/rodada/CartaoDaRodada";
 import { BotoesDePresenca } from "@/components/rodada/BotoesDePresenca";
 import { ListaDeJogadores } from "@/components/rodada/ListaDeJogadores";
+import { PainelDeConvidados } from "@/components/rodada/PainelDeConvidados";
 import { Cartao, CabecalhoCartao } from "@/components/ui/Cartao";
 import { Selo } from "@/components/ui/Selo";
 import { ErroDeRegra } from "@/lib/erros";
@@ -38,7 +40,12 @@ export default async function PaginaDaRodada({ params }: { params: Promise<{ id:
   }
 
   const { rodada, participantes, convidados } = dados;
-  const estado = await montarEstadoDePresenca(id, perfil);
+  const [estado, cota] = await Promise.all([
+    montarEstadoDePresenca(id, perfil),
+    situacaoDaCota(rodada, perfil),
+  ]);
+
+  const meusConvidados = convidados.filter((c) => c.host_profile_id === perfil.id);
 
   const confirmados = participantes.filter((p) => p.status === "confirmed" || p.status === "invited");
   const esperando = participantes.filter((p) => p.status === "waiting");
@@ -56,6 +63,10 @@ export default async function PaginaDaRodada({ params }: { params: Promise<{ id:
       >
         {aceitaPresenca && <BotoesDePresenca rodadaId={rodada.id} estado={estado} />}
       </CartaoDaRodada>
+
+      {rodada.status === "open" && (
+        <PainelDeConvidados rodadaId={rodada.id} meusConvidados={meusConvidados} cota={cota} />
+      )}
 
       <Cartao>
         <CabecalhoCartao titulo="Detalhes" />

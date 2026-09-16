@@ -313,10 +313,35 @@ export async function abrirRodada(rodadaId: string, atorId: string): Promise<Rou
   return rodada;
 }
 
-export function fecharLista(rodadaId: string, atorId: string) {
-  return mudarSituacaoDaRodada(rodadaId, "closed", atorId, "rodada.fechada", {
+/**
+ * Fecha a lista e acomoda os convidados.
+ *
+ * E aqui que o convidado entra: so depois de saber quantos jogadores do
+ * grupo ficaram de fora e possivel dizer quantas vagas sobraram.
+ */
+export async function fecharLista(rodadaId: string, atorId: string): Promise<Round> {
+  const rodada = await mudarSituacaoDaRodada(rodadaId, "closed", atorId, "rodada.fechada", {
     closed_at: new Date().toISOString(),
   });
+
+  const { consolidarConvidados } = await import("./convidados");
+  await consolidarConvidados(rodadaId);
+
+  const { data: dentro } = await clienteAdmin()
+    .from("round_participants")
+    .select("profile_id")
+    .eq("round_id", rodadaId)
+    .eq("status", "confirmed");
+
+  await notificar({
+    destinatarios: (dentro ?? []).map((p) => p.profile_id),
+    tipo: "lista.fechada",
+    titulo: "Lista fechada",
+    corpo: `${nomeDaRodada(rodada)}: a lista está fechada. Nos vemos na quadra!`,
+    url: `/racha/${rodada.id}`,
+  });
+
+  return rodada;
 }
 
 export function iniciarRodada(rodadaId: string, atorId: string) {

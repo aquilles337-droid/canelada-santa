@@ -6,6 +6,8 @@ import { Cartao, CabecalhoCartao } from "@/components/ui/Cartao";
 import { Selo } from "@/components/ui/Selo";
 import { formatarData } from "@/lib/format";
 import { formatarTelefone } from "@/lib/phone";
+import { cobrancasEmAberto } from "@/server/services/cobrancas";
+import { ResumoFinanceiro } from "@/components/financeiro/CartaoDePagamento";
 import { FormularioPerfil } from "./FormularioPerfil";
 import { BotaoSair } from "./BotaoSair";
 
@@ -23,6 +25,9 @@ export default async function PaginaPerfil() {
   const perfil = await usuarioAtual();
   if (!perfil) redirect("/entrar");
 
+  const emAberto = await cobrancasEmAberto(perfil.id);
+  const totalEmAberto = emAberto.reduce((soma, c) => soma + c.amount_cents, 0);
+
   return (
     <div className="flex flex-col gap-4 animate-subir">
       <Cartao destaque className="flex items-center gap-4">
@@ -39,6 +44,8 @@ export default async function PaginaPerfil() {
           </div>
         </div>
       </Cartao>
+
+      <ResumoFinanceiro totalEmAbertoCentavos={totalEmAberto} />
 
       <Cartao>
         <CabecalhoCartao titulo="Meus dados" />
