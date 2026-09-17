@@ -1,10 +1,15 @@
+import "server-only";
+
 import { z } from "zod";
 
 /**
  * Variaveis de ambiente do servidor. Sao validadas na primeira leitura, para
  * o sistema falhar na subida com uma mensagem clara em vez de quebrar no meio
- * de um pagamento. Nenhum segredo daqui pode vazar para o navegador: este
- * modulo so e importado por codigo de servidor.
+ * de um pagamento.
+ *
+ * Nenhum segredo daqui pode vazar para o navegador. O `server-only` acima
+ * faz a compilacao falhar se alguem importar este modulo de um componente
+ * de cliente — a garantia nao depende de ninguem lembrar da regra.
  */
 const esquemaServidor = z.object({
   NEXT_PUBLIC_SUPABASE_URL: z.string().url("NEXT_PUBLIC_SUPABASE_URL precisa ser uma URL"),
