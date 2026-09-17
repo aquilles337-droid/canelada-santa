@@ -32,3 +32,29 @@ end
 $$;
 
 create extension if not exists "pgcrypto";
+
+-- ------------------------------------------------------------
+-- Stub do Supabase Storage
+-- ------------------------------------------------------------
+-- A migration das fotos cria baldes e uma politica de leitura. Localmente
+-- reproduzimos so o suficiente para a migration rodar igual.
+create schema if not exists storage;
+
+create table if not exists storage.buckets (
+  id                 text primary key,
+  name               text not null,
+  public             boolean not null default false,
+  file_size_limit    bigint,
+  allowed_mime_types text[],
+  created_at         timestamptz not null default now()
+);
+
+create table if not exists storage.objects (
+  id        uuid primary key default gen_random_uuid(),
+  bucket_id text references storage.buckets (id),
+  name      text not null,
+  owner     uuid,
+  created_at timestamptz not null default now()
+);
+
+alter table storage.objects enable row level security;

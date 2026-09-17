@@ -76,6 +76,21 @@ export default async function PaginaPerfil() {
               Meus pagamentos
             </Botao>
           </Link>
+          <Link href="/historico">
+            <Botao variante="escuro" larguraTotal>
+              Histórico de rachas
+            </Botao>
+          </Link>
+          <Link href="/hall-da-fama">
+            <Botao variante="escuro" larguraTotal>
+              Hall da Fama
+            </Botao>
+          </Link>
+          <Link href="/resenha">
+            <Botao variante="escuro" larguraTotal>
+              Resenha da temporada
+            </Botao>
+          </Link>
         </div>
       </Cartao>
 
