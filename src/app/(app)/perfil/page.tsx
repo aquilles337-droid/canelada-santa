@@ -10,6 +10,7 @@ import Link from "next/link";
 import { cobrancasEmAberto } from "@/server/services/cobrancas";
 import { Botao } from "@/components/ui/Botao";
 import { ResumoFinanceiro } from "@/components/financeiro/CartaoDePagamento";
+import { AtivarNotificacoes } from "@/components/pwa/AtivarNotificacoes";
 import { FormularioPerfil } from "./FormularioPerfil";
 import { BotaoSair } from "./BotaoSair";
 
@@ -52,6 +53,14 @@ export default async function PaginaPerfil() {
       <Cartao>
         <CabecalhoCartao titulo="Meus dados" />
         <FormularioPerfil perfil={perfil} />
+      </Cartao>
+
+      <Cartao>
+        <CabecalhoCartao titulo="Notificações" icone={<span aria-hidden>🔔</span>} />
+        <AtivarNotificacoes
+          chavePublica={process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? null}
+          preferenciaLigada={perfil.notifications_enabled}
+        />
       </Cartao>
 
       <Cartao>

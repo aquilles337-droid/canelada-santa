@@ -281,7 +281,8 @@ async function avisarAberturaDaRodada(rodada: Round): Promise<void> {
 async function mudarSituacaoDaRodada(
   rodadaId: string,
   nova: RoundStatus,
-  atorId: string,
+  // Nulo quando quem mudou foi o relógio (tarefa agendada), não uma pessoa.
+  atorId: string | null,
   acao: Parameters<typeof registrarAuditoria>[0]["acao"],
   camposExtras: Partial<Round> = {},
 ): Promise<Round> {
@@ -319,7 +320,7 @@ export async function abrirRodada(rodadaId: string, atorId: string): Promise<Rou
  * E aqui que o convidado entra: so depois de saber quantos jogadores do
  * grupo ficaram de fora e possivel dizer quantas vagas sobraram.
  */
-export async function fecharLista(rodadaId: string, atorId: string): Promise<Round> {
+export async function fecharLista(rodadaId: string, atorId: string | null): Promise<Round> {
   const rodada = await mudarSituacaoDaRodada(rodadaId, "closed", atorId, "rodada.fechada", {
     closed_at: new Date().toISOString(),
   });

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Anton, Inter } from "next/font/google";
 import { ProvedorDeToast } from "@/components/ui/Toast";
+import { RegistrarServiceWorker } from "@/components/pwa/RegistrarServiceWorker";
 import "@/styles/globals.css";
 
 const display = Anton({
@@ -51,6 +52,7 @@ export default function LayoutRaiz({ children }: { children: React.ReactNode }) 
   return (
     <html lang="pt-BR" className={`${display.variable} ${texto.variable}`}>
       <body className="min-h-dvh antialiased">
+        <RegistrarServiceWorker />
         <ProvedorDeToast>{children}</ProvedorDeToast>
       </body>
     </html>

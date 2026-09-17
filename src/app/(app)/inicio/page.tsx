@@ -11,6 +11,7 @@ import { BotoesDePresenca } from "@/components/rodada/BotoesDePresenca";
 import { Cartao, CabecalhoCartao } from "@/components/ui/Cartao";
 import { EstadoVazio } from "@/components/ui/Estados";
 import { Brasao } from "@/components/brand/Brasao";
+import { ConviteParaInstalar } from "@/components/pwa/ConviteParaInstalar";
 import { ResumoFinanceiro } from "@/components/financeiro/CartaoDePagamento";
 import { Selo } from "@/components/ui/Selo";
 import { formatarPercentual, plural } from "@/lib/format";
@@ -79,6 +80,8 @@ export default async function PaginaInicio() {
         <ResumoFinanceiro totalEmAbertoCentavos={totalEmAberto} />
 
       {meusNumeros}
+
+      <ConviteParaInstalar />
         {meusNumeros}
       </div>
     );
@@ -118,6 +121,8 @@ export default async function PaginaInicio() {
       <ResumoFinanceiro totalEmAbertoCentavos={totalEmAberto} />
 
       {meusNumeros}
+
+      <ConviteParaInstalar />
     </div>
   );
 }
