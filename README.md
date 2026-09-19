@@ -359,17 +359,41 @@ São elas que fecham a lista no horário, liberam as vagas para os avulsos cinco
 chamam a próxima pessoa da fila, recolhem a vaga de quem não respondeu e geram a mensalidade
 do mês. **Sem isso, nada acontece sozinho.**
 
-No servidor, abra o agendador:
+O jeito de ligar depende de onde o aplicativo está hospedado.
+
+### Se você tem VPS (acesso por SSH)
 
 ```bash
 crontab -e
 ```
 
-E acrescente (trocando o domínio e o segredo):
-
 ```cron
 * * * * * curl -fsS -m 50 -H "x-cron-secret: SEU_CRON_SECRET" https://seu-dominio.com.br/api/cron/tick > /dev/null 2>&1
 ```
+
+### Se você está em hospedagem gerenciada (sem SSH)
+
+Você não tem terminal, então alguém de fora precisa fazer a chamada. Três
+caminhos, em ordem de recomendação:
+
+**1. O agendador do próprio painel.** Procure por **Cron Jobs** no hPanel. Se existir,
+cadastre o mesmo comando `curl` da caixa acima.
+
+**2. Um serviço de cron gratuito** — [cron-job.org](https://cron-job.org) é o mais simples:
+
+   - **URL**: `https://seu-dominio.com.br/api/cron/tick`
+   - **Intervalo**: a cada 1 minuto
+   - Em **Advanced / Headers**, acrescente o cabeçalho
+     `x-cron-secret` com o valor do seu `CRON_SECRET`
+
+**3. O GitHub**, usando `.github/workflows/tarefas-agendadas.yml`, que já vem no
+   repositório. Cadastre `APP_URL` e `CRON_SECRET` em
+   *Settings → Secrets and variables → Actions*. Duas limitações: o agendamento só
+   roda a partir da **branch padrão**, e o horário atrasa de 5 a 15 minutos quando o
+   GitHub está cheio.
+
+> 🔒 Seja qual for o caminho, o `CRON_SECRET` vai num **cabeçalho**, nunca na
+> URL — endereço fica gravado em log de servidor, cabeçalho não.
 
 Para conferir se está funcionando, entre no aplicativo como administrador e vá em
 **Admin → Ajustes**. No final da página, o cartão **Tarefas automáticas** mostra as últimas

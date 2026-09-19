@@ -1,0 +1,45 @@
+# ============================================================
+# Canelada Santa — tarefas agendadas pelo GitHub
+# ============================================================
+# Alternativa gratuita ao cron do servidor, para quem está em hospedagem
+# gerenciada e não tem acesso ao terminal.
+#
+# ATENÇÃO, duas limitações reais do GitHub:
+#
+#   1. Agendamento só funciona a partir da BRANCH PADRÃO do repositório.
+#      Enquanto o código estiver numa branch de trabalho, isto não dispara.
+#   2. O horário é "quando der". Atrasos de 5 a 15 minutos são comuns quando
+#      o GitHub está cheio. Para o racha isso é tolerável — a lista fecha
+#      alguns minutos depois, a fila anda alguns minutos depois — mas se o
+#      grupo quiser pontualidade, use um serviço de cron dedicado.
+#
+# Antes de funcionar, cadastre em
+# Settings → Secrets and variables → Actions:
+#
+#   APP_URL      https://seu-dominio.com.br
+#   CRON_SECRET  o mesmo valor que está na variável de ambiente do site
+
+name: Tarefas agendadas
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  # Permite disparar na mão pela aba Actions, para testar.
+  workflow_dispatch:
+
+jobs:
+  executar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Chamar o endpoint de tarefas
+        run: |
+          if [ -z "${{ secrets.APP_URL }}" ] || [ -z "${{ secrets.CRON_SECRET }}" ]; then
+            echo "Faltam os segredos APP_URL e CRON_SECRET nas configurações do repositório."
+            exit 1
+          fi
+
+          # --fail faz o passo falhar quando o endpoint responde erro, então
+          # um job quebrado aparece na aba Actions em vez de passar em branco.
+          curl --fail --silent --show-error --max-time 60 \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
+            "${{ secrets.APP_URL }}/api/cron/tick"
