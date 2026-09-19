@@ -130,6 +130,15 @@ Depois rode o `supabase/seed.sql`, que cria a temporada atual e o catálogo de c
 > Se preferir a linha de comando, com a CLI do Supabase instalada:
 > `supabase link --project-ref SEU_REF && supabase db push`
 
+### 2.3.1 Conferir se ficou tudo
+
+Cole `supabase/verificar-instalacao.sql` no SQL Editor e rode. Ele lista o que falta.
+Se responder **"o banco esta completo"**, pode seguir. Qualquer linha com **FALTANDO** aponta a
+migration que não passou — rode aquele arquivo de novo e confira o erro que ele der.
+
+Vale a pena rodar sempre que uma tela der erro de servidor: quase todo erro assim é um objeto
+do banco que ficou para trás.
+
 ### 2.4 Ajustar o login
 
 O Canelada Santa entra por **telefone e senha**. Por baixo, o Supabase guarda um e-mail
