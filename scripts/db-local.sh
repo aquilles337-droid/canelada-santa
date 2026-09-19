@@ -65,5 +65,8 @@ run "$PSQL -d $DB -f '$ROOT/supabase/test/20_presenca_assertions.sql'"
 echo "→ rodando asserções do financeiro"
 run "$PSQL -d $DB -f '$ROOT/supabase/test/30_pagamentos_assertions.sql'"
 
+echo "→ rodando asserções do guarda de perfil"
+run "$PSQL -d $DB -f '$ROOT/supabase/test/40_guarda_de_perfil_assertions.sql'"
+
 echo ""
 echo "✓ banco validado: migrations, seed e asserções passaram."
