@@ -191,6 +191,69 @@ export async function cancelarCobranca(
   }
 }
 
+/**
+ * Volta a cobrar uma cobranca perdoada ou cancelada.
+ *
+ * E o desfazer do "Perdoar". Sem isto, perdoar era um caminho sem volta:
+ * a competencia do mes ficava marcada e a geracao mensal pulava aquele
+ * jogador para sempre, porque ja existia linha para o mes.
+ *
+ * Cobranca ja paga nunca reabre — dinheiro que entrou nao volta atras.
+ */
+export async function reabrirCobranca(cobrancaId: string, atorId: string): Promise<Charge> {
+  const admin = clienteAdmin();
+
+  const { data: antes } = await admin.from("charges").select("*").eq("id", cobrancaId).maybeSingle();
+  if (!antes) throw erroDeRegra("nao_encontrado", "Cobrança não encontrada.");
+
+  if (antes.status === "paid") {
+    throw erroDeRegra("regra_violada", "Esta cobrança já foi paga.");
+  }
+  if (antes.status === "pending") return antes;
+
+  const { data, error } = await admin
+    .from("charges")
+    .update({ status: "pending", paid_at: null })
+    .eq("id", cobrancaId)
+    .select("*")
+    .single();
+
+  if (error || !data) {
+    throw erroDeRegra("servico_indisponivel", "Não foi possível reabrir a cobrança.");
+  }
+
+  await registrarAuditoria({
+    atorId,
+    acao: "cobranca.criada",
+    entidade: "charges",
+    entidadeId: cobrancaId,
+    antes: { situacao: antes.status },
+    depois: { situacao: "pending", motivo: "cobrada novamente pelo administrador" },
+  });
+
+  await notificar({
+    destinatarios: [data.profile_id],
+    tipo: "pagamento.pendente",
+    titulo: "Cobrança reaberta",
+    corpo: `${data.description} — ${formatarDinheiro(data.amount_cents)} voltou a ficar em aberto.`,
+    url: "/perfil/pagamentos",
+  });
+
+  return data;
+}
+
+/** Cobrancas perdoadas ou canceladas, para o administrador poder reabrir. */
+export async function cobrancasPerdoadas(limite = 30): Promise<Charge[]> {
+  const { data } = await clienteAdmin()
+    .from("charges")
+    .select("*")
+    .in("status", ["waived", "cancelled"])
+    .order("updated_at", { ascending: false })
+    .limit(limite);
+
+  return data ?? [];
+}
+
 /** Cobrancas em aberto do jogador, das mais antigas para as mais novas. */
 export async function cobrancasEmAberto(profileId: string): Promise<Charge[]> {
   const { data } = await clienteAdmin()

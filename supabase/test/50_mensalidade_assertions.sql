@@ -72,7 +72,25 @@ begin
     'mensalidade ja paga nao volta a ser perdoada'
   );
 
-  -- 4. Cancelar a cobranca cancela a competencia.
+  -- 4. Reabrir a cobranca perdoada volta a cobrar a competencia.
+  insert into public.memberships (profile_id, competence, amount_cents, due_date, status)
+  values (v_jogador, v_mes - interval '3 months', 2500, current_date - 95, 'overdue')
+  returning id into v_mensal;
+
+  insert into public.charges (profile_id, membership_id, type, amount_cents, description, idempotency_key)
+  values (v_jogador, v_mensal, 'monthly', 2500, 'Mensalidade reaberta', 'monthly:sinc:4')
+  returning id into v_cobr;
+
+  update public.charges set status = 'waived' where id = v_cobr;
+  update public.charges set status = 'pending' where id = v_cobr;
+
+  select status into v_situacao from public.memberships where id = v_mensal;
+  perform pg_temp.exigir_mens(
+    v_situacao = 'pending',
+    'reabrir a cobranca perdoada volta a cobrar a mensalidade'
+  );
+
+  -- 5. Cancelar a cobranca cancela a competencia.
   insert into public.memberships (profile_id, competence, amount_cents, due_date, status)
   values (v_jogador, v_mes - interval '2 months', 2500, current_date - 65, 'pending')
   returning id into v_mensal;

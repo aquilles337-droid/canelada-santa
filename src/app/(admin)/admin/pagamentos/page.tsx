@@ -7,7 +7,10 @@ import { CartaoDePagamento } from "@/components/financeiro/CartaoDePagamento";
 import { Avatar } from "@/components/ui/Avatar";
 import { formatarDinheiro } from "@/lib/format";
 import type { Charge, Profile } from "@/lib/supabase/tipos";
+import { cobrancasPerdoadas } from "@/server/services/cobrancas";
+import { CabecalhoCartao } from "@/components/ui/Cartao";
 import { AcoesDaCobranca } from "./AcoesDaCobranca";
+import { ReabrirCobranca } from "./ReabrirCobranca";
 
 export const metadata: Metadata = { title: "Pagamentos" };
 
@@ -26,6 +29,7 @@ export default async function PaginaAdminPagamentos() {
     .limit(200);
 
   const cobrancas = (data ?? []) as unknown as CobrancaComJogador[];
+  const perdoadas = await cobrancasPerdoadas();
   const total = cobrancas.reduce((soma, c) => soma + c.amount_cents, 0);
 
   const porJogador = new Map<string, { jogador: Profile; cobrancas: CobrancaComJogador[]; total: number }>();
@@ -76,6 +80,28 @@ export default async function PaginaAdminPagamentos() {
             </div>
           </Cartao>
         ))
+      )}
+
+      {perdoadas.length > 0 && (
+        <Cartao>
+          <CabecalhoCartao
+            titulo="Perdoadas e canceladas"
+            icone={<span aria-hidden>↩️</span>}
+          />
+          <p className="mb-3 text-xs text-cinza-escuro">
+            Perdoou por engano ou o combinado mudou? Aqui dá para voltar a cobrar.
+          </p>
+
+          <div className="flex flex-col gap-2">
+            {perdoadas.map((cobranca) => (
+              <CartaoDePagamento
+                key={cobranca.id}
+                cobranca={cobranca}
+                acao={<ReabrirCobranca cobrancaId={cobranca.id} />}
+              />
+            ))}
+          </div>
+        </Cartao>
       )}
     </div>
   );

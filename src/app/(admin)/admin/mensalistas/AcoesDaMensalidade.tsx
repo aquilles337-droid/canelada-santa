@@ -2,7 +2,11 @@
 
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { perdoarMensalidadeAction, quitarMensalidadeAction } from "@/server/actions/cobrancas";
+import {
+  perdoarMensalidadeAction,
+  quitarMensalidadeAction,
+  reabrirMensalidadeAction,
+} from "@/server/actions/cobrancas";
 import { Botao } from "@/components/ui/Botao";
 import { useToast } from "@/components/ui/Toast";
 
@@ -14,7 +18,14 @@ import { useToast } from "@/components/ui/Toast";
  * "Perdoar" anula a cobrança sem pagamento — quem estava machucado ou
  * viajando. Nenhum dos dois apaga a competência do histórico.
  */
-export function AcoesDaMensalidade({ mensalidadeId }: { mensalidadeId: string }) {
+export function AcoesDaMensalidade({
+  mensalidadeId,
+  perdoada = false,
+}: {
+  mensalidadeId: string;
+  /** Perdoada ou cancelada: o único caminho é voltar a cobrar. */
+  perdoada?: boolean;
+}) {
   const toast = useToast();
   const router = useRouter();
   const [executando, iniciar] = useTransition();
@@ -29,6 +40,21 @@ export function AcoesDaMensalidade({ mensalidadeId }: { mensalidadeId: string })
         toast.erro(resultado.mensagem ?? "Não foi possível concluir.");
       }
     });
+
+  if (perdoada) {
+    return (
+      <Botao
+        variante="contorno"
+        tamanho="sm"
+        disabled={executando}
+        onClick={() =>
+          rodar(() => reabrirMensalidadeAction(mensalidadeId), "Mensalidade voltou a ser cobrada.")
+        }
+      >
+        Cobrar de novo
+      </Botao>
+    );
+  }
 
   return (
     <div className="flex shrink-0 gap-1">

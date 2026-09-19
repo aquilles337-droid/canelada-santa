@@ -6,7 +6,7 @@ import { chaveDeCobranca, competenciaDoMes, mensalidadeVencida, vencimentoDaMens
 import { formatarData, formatarDinheiro, mesAno } from "@/lib/format";
 import type { Membership, Profile } from "@/lib/supabase/tipos";
 import { registrarAuditoria } from "./auditoria";
-import { baixarCobrancaManualmente, criarCobranca } from "./cobrancas";
+import { baixarCobrancaManualmente, criarCobranca, reabrirCobranca } from "./cobrancas";
 import { lerConfiguracoes } from "./configuracoes";
 import { notificar } from "./notificacoes";
 
@@ -209,6 +209,66 @@ export async function marcarMensalidadePaga(mensalidadeId: string, atorId: strin
     entidade: "memberships",
     entidadeId: mensalidadeId,
     depois: { situacao: "paid" },
+  });
+}
+
+/**
+ * Volta a cobrar uma mensalidade perdoada ou cancelada.
+ *
+ * Se a cobranca dela sumiu por algum motivo, uma nova e criada com a mesma
+ * chave de idempotencia — entao reabrir duas vezes nao cobra em dobro.
+ */
+export async function reabrirMensalidade(mensalidadeId: string, atorId: string): Promise<void> {
+  const admin = clienteAdmin();
+
+  const { data: mensalidade } = await admin
+    .from("memberships")
+    .select("*")
+    .eq("id", mensalidadeId)
+    .maybeSingle();
+
+  if (!mensalidade) throw erroDeRegra("nao_encontrado", "Mensalidade não encontrada.");
+  if (mensalidade.status === "paid") {
+    throw erroDeRegra("regra_violada", "Esta mensalidade já foi paga.");
+  }
+
+  const { data: cobranca } = await admin
+    .from("charges")
+    .select("id")
+    .eq("membership_id", mensalidadeId)
+    .maybeSingle();
+
+  if (cobranca) {
+    await reabrirCobranca(cobranca.id, atorId);
+    return;
+  }
+
+  // Sem cobranca ligada: cria uma, com o valor que valia naquele mes.
+  await criarCobranca({
+    profileId: mensalidade.profile_id,
+    tipo: "monthly",
+    valorCentavos: mensalidade.amount_cents,
+    descricao: `Mensalidade de ${mesAno(`${mensalidade.competence}T12:00:00.000Z`)}`,
+    chave: chaveDeCobranca("monthly", {
+      profileId: mensalidade.profile_id,
+      competencia: mensalidade.competence,
+    }),
+    mensalidadeId,
+    vencimento: mensalidade.due_date,
+    criadoPor: atorId,
+  });
+
+  await admin
+    .from("memberships")
+    .update({ status: "pending", paid_at: null })
+    .eq("id", mensalidadeId);
+
+  await registrarAuditoria({
+    atorId,
+    acao: "cobranca.criada",
+    entidade: "memberships",
+    entidadeId: mensalidadeId,
+    depois: { situacao: "pending", motivo: "cobrada novamente pelo administrador" },
   });
 }
 

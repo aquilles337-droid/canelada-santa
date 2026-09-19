@@ -127,7 +127,16 @@ export default async function PaginaAdminMensalistas() {
               <LinhaDeJogador
                 key={m.id}
                 jogador={m.jogador}
-                selo={<Selo tom="verde">{m.status === "waived" ? "Perdoada" : "Paga"}</Selo>}
+                selo={
+                  <Selo tom={m.status === "waived" ? "neutro" : "verde"}>
+                    {m.status === "waived" ? "Perdoada" : "Paga"}
+                  </Selo>
+                }
+                acoes={
+                  m.status === "waived" ? (
+                    <AcoesDaMensalidade mensalidadeId={m.id} perdoada />
+                  ) : undefined
+                }
               />
             ))}
           </ul>

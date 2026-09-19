@@ -2,11 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { exigirAdmin } from "@/server/auth/sessao";
-import { baixarCobrancaManualmente, perdoarCobranca } from "@/server/services/cobrancas";
+import { baixarCobrancaManualmente, perdoarCobranca, reabrirCobranca } from "@/server/services/cobrancas";
 import {
   gerarMensalidadesDoMes,
   marcarMensalidadePaga,
   perdoarMensalidade,
+  reabrirMensalidade,
 } from "@/server/services/mensalidades";
 import { comoResultado, sucesso, type Resultado } from "@/lib/erros";
 
@@ -62,6 +63,30 @@ export async function perdoarMensalidadeAction(
   try {
     const admin = await exigirAdmin();
     await perdoarMensalidade(mensalidadeId, admin.id, motivo || "sem motivo informado");
+    atualizarFinanceiro();
+    return sucesso();
+  } catch (erro) {
+    return comoResultado(erro);
+  }
+}
+
+/** Desfaz um perdão: a cobrança volta a ficar em aberto. */
+export async function reabrirCobrancaAction(cobrancaId: string): Promise<Resultado> {
+  try {
+    const admin = await exigirAdmin();
+    await reabrirCobranca(cobrancaId, admin.id);
+    atualizarFinanceiro();
+    return sucesso();
+  } catch (erro) {
+    return comoResultado(erro);
+  }
+}
+
+/** Volta a cobrar uma mensalidade perdoada ou cancelada. */
+export async function reabrirMensalidadeAction(mensalidadeId: string): Promise<Resultado> {
+  try {
+    const admin = await exigirAdmin();
+    await reabrirMensalidade(mensalidadeId, admin.id);
     atualizarFinanceiro();
     return sucesso();
   } catch (erro) {
