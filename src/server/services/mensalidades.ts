@@ -6,7 +6,7 @@ import { chaveDeCobranca, competenciaDoMes, mensalidadeVencida, vencimentoDaMens
 import { formatarData, formatarDinheiro, mesAno } from "@/lib/format";
 import type { Membership, Profile } from "@/lib/supabase/tipos";
 import { registrarAuditoria } from "./auditoria";
-import { criarCobranca } from "./cobrancas";
+import { baixarCobrancaManualmente, criarCobranca } from "./cobrancas";
 import { lerConfiguracoes } from "./configuracoes";
 import { notificar } from "./notificacoes";
 
@@ -165,6 +165,51 @@ export async function panoramaDeMensalistas(referencia: Date = new Date()): Prom
     inadimplentes: linhas.filter((m) => m.status === "overdue"),
     semMensalidade: (mensalistas ?? []).filter((j) => !comMensalidade.has(j.id)),
   };
+}
+
+/**
+ * Marca a mensalidade como paga — a baixa manual de quem pagou em dinheiro.
+ *
+ * Quando existe cobranca ligada, quem baixa e ela: assim o pagamento aparece
+ * no extrato do jogador e a notificacao sai, em vez de a mensalidade mudar
+ * de situacao sozinha e a cobranca ficar pendurada em aberto.
+ */
+export async function marcarMensalidadePaga(mensalidadeId: string, atorId: string): Promise<void> {
+  const admin = clienteAdmin();
+
+  const { data: mensalidade } = await admin
+    .from("memberships")
+    .select("*")
+    .eq("id", mensalidadeId)
+    .maybeSingle();
+
+  if (!mensalidade) throw erroDeRegra("nao_encontrado", "Mensalidade não encontrada.");
+  if (mensalidade.status === "paid") return;
+
+  const { data: cobranca } = await admin
+    .from("charges")
+    .select("id")
+    .eq("membership_id", mensalidadeId)
+    .in("status", ["pending", "expired"])
+    .maybeSingle();
+
+  if (cobranca) {
+    await baixarCobrancaManualmente(cobranca.id, atorId, "mensalidade paga em dinheiro");
+    return;
+  }
+
+  await admin
+    .from("memberships")
+    .update({ status: "paid", paid_at: new Date().toISOString() })
+    .eq("id", mensalidadeId);
+
+  await registrarAuditoria({
+    atorId,
+    acao: "cobranca.baixada_manualmente",
+    entidade: "memberships",
+    entidadeId: mensalidadeId,
+    depois: { situacao: "paid" },
+  });
 }
 
 /** Perdoa a mensalidade de um jogador num mes (ex.: quem estava machucado). */

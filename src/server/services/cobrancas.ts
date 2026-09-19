@@ -268,13 +268,27 @@ export async function baixarCobrancaManualmente(
 
 /** Perdoa uma cobranca sem apagar o historico. */
 export async function perdoarCobranca(cobrancaId: string, atorId: string, motivo: string): Promise<void> {
-  const { error } = await clienteAdmin()
+  const admin = clienteAdmin();
+
+  const { data, error } = await admin
     .from("charges")
     .update({ status: "waived" })
     .eq("id", cobrancaId)
-    .in("status", ["pending", "expired"]);
+    .in("status", ["pending", "expired"])
+    .select("membership_id");
 
   if (error) throw erroDeRegra("servico_indisponivel", "Não foi possível perdoar a cobrança.");
+
+  // A mensalidade precisa acompanhar a cobrança.
+  //
+  // Sem isto, perdoar a dívida deixava a competência do mês em aberto — e a
+  // tarefa automática depois a marcava como vencida. Ou seja: o perdão
+  // acabava transformando a pessoa em inadimplente, o oposto do que o botão
+  // promete. O "Pagou" já fazia certo; o "Perdoar" tinha esquecido.
+  const mensalidadeId = data?.[0]?.membership_id;
+  if (mensalidadeId) {
+    await admin.from("memberships").update({ status: "waived" }).eq("id", mensalidadeId);
+  }
 
   await registrarAuditoria({
     atorId,

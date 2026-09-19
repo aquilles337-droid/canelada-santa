@@ -9,6 +9,7 @@ import { EstadoVazio } from "@/components/ui/Estados";
 import { formatarData, formatarDinheiro, mesAno } from "@/lib/format";
 import type { Profile } from "@/lib/supabase/tipos";
 import { GerarMensalidades } from "./GerarMensalidades";
+import { AcoesDaMensalidade } from "./AcoesDaMensalidade";
 
 export const metadata: Metadata = { title: "Mensalistas" };
 
@@ -16,19 +17,22 @@ function LinhaDeJogador({
   jogador,
   detalhe,
   selo,
+  acoes,
 }: {
   jogador: Profile;
   detalhe?: string;
   selo: React.ReactNode;
+  acoes?: React.ReactNode;
 }) {
   return (
-    <li className="flex items-center gap-3 py-2.5">
+    <li className="flex flex-wrap items-center gap-x-3 gap-y-2 py-2.5">
       <Avatar nome={jogador.full_name} fotoUrl={jogador.photo_url} tamanho="sm" />
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium">{jogador.full_name}</p>
         {detalhe && <p className="text-[11px] text-cinza-escuro">{detalhe}</p>}
       </div>
       {selo}
+      {acoes}
     </li>
   );
 }
@@ -88,6 +92,7 @@ export default async function PaginaAdminMensalistas() {
                 jogador={m.jogador}
                 detalhe={`Venceu em ${formatarData(m.due_date)}`}
                 selo={<Selo tom="vermelho">{formatarDinheiro(m.amount_cents)}</Selo>}
+                acoes={<AcoesDaMensalidade mensalidadeId={m.id} />}
               />
             ))}
           </ul>
@@ -107,6 +112,7 @@ export default async function PaginaAdminMensalistas() {
                 jogador={m.jogador}
                 detalhe={`Vence em ${formatarData(m.due_date)}`}
                 selo={<Selo tom="ambar">{formatarDinheiro(m.amount_cents)}</Selo>}
+                acoes={<AcoesDaMensalidade mensalidadeId={m.id} />}
               />
             ))}
           </ul>

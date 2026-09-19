@@ -3,7 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { exigirAdmin } from "@/server/auth/sessao";
 import { baixarCobrancaManualmente, perdoarCobranca } from "@/server/services/cobrancas";
-import { gerarMensalidadesDoMes, perdoarMensalidade } from "@/server/services/mensalidades";
+import {
+  gerarMensalidadesDoMes,
+  marcarMensalidadePaga,
+  perdoarMensalidade,
+} from "@/server/services/mensalidades";
 import { comoResultado, sucesso, type Resultado } from "@/lib/erros";
 
 function atualizarFinanceiro(): void {
@@ -32,6 +36,18 @@ export async function perdoarCobrancaAction(cobrancaId: string, motivo: string):
   try {
     const admin = await exigirAdmin();
     await perdoarCobranca(cobrancaId, admin.id, motivo || "sem motivo informado");
+    atualizarFinanceiro();
+    return sucesso();
+  } catch (erro) {
+    return comoResultado(erro);
+  }
+}
+
+/** Baixa manual da mensalidade: para quem pagou em dinheiro na quadra. */
+export async function quitarMensalidadeAction(mensalidadeId: string): Promise<Resultado> {
+  try {
+    const admin = await exigirAdmin();
+    await marcarMensalidadePaga(mensalidadeId, admin.id);
     atualizarFinanceiro();
     return sucesso();
   } catch (erro) {

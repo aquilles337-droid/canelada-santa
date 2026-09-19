@@ -68,6 +68,9 @@ run "$PSQL -d $DB -f '$ROOT/supabase/test/30_pagamentos_assertions.sql'"
 echo "→ rodando asserções do guarda de perfil"
 run "$PSQL -d $DB -f '$ROOT/supabase/test/40_guarda_de_perfil_assertions.sql'"
 
+echo "→ rodando asserções da mensalidade"
+run "$PSQL -d $DB -f '$ROOT/supabase/test/50_mensalidade_assertions.sql'"
+
 echo "→ conferindo a lista de instalação (o mesmo arquivo que o README manda rodar no Supabase)"
 run "$PSQL -d $DB -f '$ROOT/supabase/verificar-instalacao.sql'"
 
