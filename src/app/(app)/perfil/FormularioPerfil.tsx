@@ -1,8 +1,10 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { salvarMeuPerfil } from "@/server/actions/jogadores";
 import { enviarFotoDePerfilAction } from "@/server/actions/fotos";
+import { EnvioDeFoto } from "@/components/ui/EnvioDeFoto";
 import { Botao } from "@/components/ui/Botao";
 import { Campo, Selecao } from "@/components/ui/Campo";
 import { useToast } from "@/components/ui/Toast";
@@ -10,10 +12,9 @@ import type { Profile } from "@/lib/supabase/tipos";
 
 export function FormularioPerfil({ perfil }: { perfil: Profile }) {
   const toast = useToast();
-  const campoDaFoto = useRef<HTMLInputElement>(null);
+  const router = useRouter();
   const [posicao, setPosicao] = useState<string>(perfil.position);
   const [estado, acao, enviando] = useActionState(salvarMeuPerfil, null);
-  const [estadoDaFoto, acaoDaFoto, enviandoFoto] = useActionState(enviarFotoDePerfilAction, null);
 
   useEffect(() => {
     if (!estado) return;
@@ -21,32 +22,17 @@ export function FormularioPerfil({ perfil }: { perfil: Profile }) {
     else toast.erro(estado.mensagem);
   }, [estado, toast]);
 
-  useEffect(() => {
-    if (!estadoDaFoto) return;
-    if (estadoDaFoto.ok) {
-      toast.sucesso("Foto atualizada.");
-      if (campoDaFoto.current) campoDaFoto.current.value = "";
-    } else {
-      toast.erro(estadoDaFoto.mensagem);
-    }
-  }, [estadoDaFoto, toast]);
-
   return (
     <>
-    <form action={acaoDaFoto} className="mb-4 flex flex-col gap-2">
-      <p className="text-xs uppercase tracking-widest text-cinza">Minha foto</p>
-      <input
-        ref={campoDaFoto}
-        type="file"
-        name="foto"
-        accept="image/jpeg,image/png,image/webp"
-        required
-        className="w-full rounded-xl border border-linha bg-carvao/70 px-3 py-2.5 text-sm text-cinza file:mr-3 file:rounded-lg file:border-0 file:bg-elevado file:px-3 file:py-1.5 file:text-xs file:text-osso"
+    <div className="mb-4">
+      <EnvioDeFoto
+        acao={(formulario) => enviarFotoDePerfilAction(null, formulario)}
+        rotulo="Minha foto"
+        textoDoBotao="Trocar foto"
+        larguraMaxima={800}
+        aoConcluir={() => router.refresh()}
       />
-      <Botao type="submit" variante="escuro" larguraTotal carregando={enviandoFoto}>
-        Trocar foto
-      </Botao>
-    </form>
+    </div>
 
     <form action={acao} className="flex flex-col gap-4">
       <Campo name="nome" rotulo="Nome completo" defaultValue={perfil.full_name} required />

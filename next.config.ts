@@ -30,7 +30,14 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   experimental: {
-    serverActions: { allowedOrigins: dominiosAutorizados() },
+    serverActions: {
+      allowedOrigins: dominiosAutorizados(),
+      // O padrao do Next e 1 MB, e qualquer foto de celular passa disso —
+      // o envio era recusado antes mesmo de a validacao do servidor rodar.
+      // O navegador ja reduz a imagem (ver src/lib/imagem.ts); este limite e
+      // a rede de seguranca, acima do maior tamanho que o servidor aceita.
+      bodySizeLimit: "10mb",
+    },
   },
   images: {
     remotePatterns: [{ protocol: "https", hostname: "*.supabase.co", pathname: "/storage/v1/object/public/**" }],

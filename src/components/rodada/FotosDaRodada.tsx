@@ -1,11 +1,11 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useTransition } from "react";
+import { useState, useTransition } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { enviarFotoDaRodadaAction, removerFotoDaRodadaAction } from "@/server/actions/fotos";
-import { Botao } from "@/components/ui/Botao";
 import { Cartao, CabecalhoCartao } from "@/components/ui/Cartao";
+import { EnvioDeFoto } from "@/components/ui/EnvioDeFoto";
 import { useToast } from "@/components/ui/Toast";
 import type { FotoComEndereco } from "@/server/services/fotos";
 
@@ -26,20 +26,8 @@ export function FotosDaRodada({
 }) {
   const toast = useToast();
   const router = useRouter();
-  const campoRef = useRef<HTMLInputElement>(null);
+  const [legenda, setLegenda] = useState("");
   const [removendo, iniciarRemocao] = useTransition();
-  const [estado, acao, enviando] = useActionState(enviarFotoDaRodadaAction, null);
-
-  useEffect(() => {
-    if (!estado) return;
-    if (estado.ok) {
-      toast.sucesso("Foto publicada.");
-      if (campoRef.current) campoRef.current.value = "";
-      router.refresh();
-    } else {
-      toast.erro(estado.mensagem);
-    }
-  }, [estado, router, toast]);
 
   if (fotos.length === 0 && !souAdmin) return null;
 
@@ -93,25 +81,24 @@ export function FotosDaRodada({
       )}
 
       {souAdmin && (
-        <form action={acao} className="flex flex-col gap-2">
-          <input type="hidden" name="rodadaId" value={rodadaId} />
+        <div className="flex flex-col gap-2">
           <input
-            ref={campoRef}
-            type="file"
-            name="foto"
-            accept="image/jpeg,image/png,image/webp"
-            required
-            className="w-full rounded-xl border border-linha bg-carvao/70 px-3 py-2.5 text-sm text-cinza file:mr-3 file:rounded-lg file:border-0 file:bg-elevado file:px-3 file:py-1.5 file:text-xs file:text-osso"
-          />
-          <input
-            name="legenda"
+            value={legenda}
+            onChange={(e) => setLegenda(e.target.value)}
             placeholder="Legenda (opcional)"
             className="h-11 w-full rounded-xl border border-linha bg-carvao/80 px-4 text-sm text-osso placeholder:text-cinza-escuro focus:border-ouro/60 focus:outline-none"
           />
-          <Botao type="submit" larguraTotal carregando={enviando}>
-            Publicar foto
-          </Botao>
-        </form>
+          <EnvioDeFoto
+            acao={(formulario) => enviarFotoDaRodadaAction(null, formulario)}
+            rotulo="Foto do racha"
+            textoDoBotao="Publicar foto"
+            camposExtras={{ rodadaId, legenda }}
+            aoConcluir={() => {
+              setLegenda("");
+              router.refresh();
+            }}
+          />
+        </div>
       )}
     </Cartao>
   );
