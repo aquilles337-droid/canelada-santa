@@ -1,17 +1,17 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { exigirAdmin, exigirAtivo } from "@/server/auth/sessao";
+import { exigirAtivo } from "@/server/auth/sessao";
 import { enviarFotoDaRodada, enviarFotoDePerfil, removerFotoDaRodada } from "@/server/services/fotos";
 import { comoResultado, falha, sucesso, type Resultado } from "@/lib/erros";
 
-/** Foto da rodada, enviada pelo administrador. */
+/** Foto da rodada. Qualquer jogador do grupo pode publicar. */
 export async function enviarFotoDaRodadaAction(
   _anterior: unknown,
   formulario: FormData,
 ): Promise<Resultado<{ url: string }>> {
   try {
-    const admin = await exigirAdmin();
+    const perfil = await exigirAtivo();
 
     const rodadaId = String(formulario.get("rodadaId") ?? "");
     const arquivo = formulario.get("foto");
@@ -20,7 +20,7 @@ export async function enviarFotoDaRodadaAction(
     if (!rodadaId) return falha("dados_invalidos", "Racha não informado.");
     if (!(arquivo instanceof File)) return falha("dados_invalidos", "Escolha uma imagem.");
 
-    const foto = await enviarFotoDaRodada(rodadaId, arquivo, admin, legenda);
+    const foto = await enviarFotoDaRodada(rodadaId, arquivo, perfil, legenda);
 
     revalidatePath(`/racha/${rodadaId}`);
     revalidatePath(`/admin/rodadas/${rodadaId}`);
@@ -35,8 +35,9 @@ export async function removerFotoDaRodadaAction(
   rodadaId: string,
 ): Promise<Resultado> {
   try {
-    const admin = await exigirAdmin();
-    await removerFotoDaRodada(fotoId, admin);
+    const perfil = await exigirAtivo();
+    // O serviço confere se é o dono ou um administrador.
+    await removerFotoDaRodada(fotoId, perfil);
 
     revalidatePath(`/racha/${rodadaId}`);
     revalidatePath(`/admin/rodadas/${rodadaId}`);

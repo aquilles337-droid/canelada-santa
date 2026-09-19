@@ -42,7 +42,7 @@ function extensaoDe(tipo: string): string {
 export async function enviarFotoDaRodada(
   rodadaId: string,
   arquivo: File,
-  admin: Profile,
+  autor: Profile,
   legenda?: string | null,
 ): Promise<RoundPhoto> {
   conferirArquivo(arquivo);
@@ -65,7 +65,7 @@ export async function enviarFotoDaRodada(
       round_id: rodadaId,
       storage_path: caminho,
       caption: legenda?.trim() || null,
-      uploaded_by: admin.id,
+      uploaded_by: autor.id,
     })
     .select("*")
     .single();
@@ -77,7 +77,7 @@ export async function enviarFotoDaRodada(
   }
 
   await registrarAuditoria({
-    atorId: admin.id,
+    atorId: autor.id,
     acao: "rodada.alterada",
     entidade: "round_photos",
     entidadeId: data.id,
@@ -87,17 +87,27 @@ export async function enviarFotoDaRodada(
   return data;
 }
 
-export async function removerFotoDaRodada(fotoId: string, admin: Profile): Promise<void> {
+/**
+ * Remove uma foto.
+ *
+ * Qualquer jogador publica, mas apagar e so de quem publicou — ou de um
+ * administrador, para dar conta do que nao deveria estar la.
+ */
+export async function removerFotoDaRodada(fotoId: string, ator: Profile): Promise<void> {
   const cliente = clienteAdmin();
 
   const { data: foto } = await cliente.from("round_photos").select("*").eq("id", fotoId).maybeSingle();
   if (!foto) return;
 
+  if (foto.uploaded_by !== ator.id && ator.role !== "admin") {
+    throw erroDeRegra("sem_permissao", "Só quem publicou pode apagar esta foto.");
+  }
+
   await cliente.storage.from("fotos-rodadas").remove([foto.storage_path]);
   await cliente.from("round_photos").delete().eq("id", fotoId);
 
   await registrarAuditoria({
-    atorId: admin.id,
+    atorId: ator.id,
     acao: "rodada.alterada",
     entidade: "round_photos",
     entidadeId: fotoId,
@@ -113,16 +123,24 @@ export function enderecoDaFoto(caminho: string, balde = "fotos-rodadas"): string
 
 export interface FotoComEndereco extends RoundPhoto {
   url: string;
+  /** Quem publicou — agora que qualquer jogador pode, o credito importa. */
+  autor: string | null;
 }
 
 export async function fotosDaRodada(rodadaId: string): Promise<FotoComEndereco[]> {
   const { data } = await clienteAdmin()
     .from("round_photos")
-    .select("*")
+    .select("*, perfil:profiles!round_photos_uploaded_by_fkey(full_name, nickname)")
     .eq("round_id", rodadaId)
     .order("created_at", { ascending: true });
 
-  return (data ?? []).map((foto) => ({ ...foto, url: enderecoDaFoto(foto.storage_path) }));
+  type LinhaBruta = RoundPhoto & { perfil: { full_name: string; nickname: string | null } | null };
+
+  return ((data ?? []) as unknown as LinhaBruta[]).map((foto) => ({
+    ...foto,
+    url: enderecoDaFoto(foto.storage_path),
+    autor: foto.perfil?.nickname?.trim() || foto.perfil?.full_name || null,
+  }));
 }
 
 /** Retrato do jogador. Cada um troca o próprio. */

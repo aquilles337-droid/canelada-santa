@@ -150,7 +150,12 @@ export default async function PaginaDaRodada({ params }: { params: Promise<{ id:
         </Cartao>
       )}
 
-      <FotosDaRodada rodadaId={rodada.id} fotos={fotos} souAdmin={perfil.role === "admin"} />
+      <FotosDaRodada
+        rodadaId={rodada.id}
+        fotos={fotos}
+        meuId={perfil.id}
+        souAdmin={perfil.role === "admin"}
+      />
 
       <Cartao>
         <CabecalhoCartao titulo="Detalhes" />
