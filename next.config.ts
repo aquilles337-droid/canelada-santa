@@ -1,8 +1,37 @@
 import type { NextConfig } from "next";
 
+/**
+ * Domínios autorizados a enviar formulários para o servidor.
+ *
+ * O Next.js compara o domínio de quem enviou o formulário com o domínio que
+ * recebeu a requisição. Atrás de um proxy — que é o caso da Hostinger — os
+ * dois chegam diferentes, e o envio é recusado antes de o código rodar:
+ * o navegador mostra "This page couldn't load" e nenhum erro aparece na tela.
+ *
+ * Aqui liberamos o domínio configurado em NEXT_PUBLIC_APP_URL, mais o
+ * endereço temporário da Hostinger e o desenvolvimento local.
+ */
+function dominiosAutorizados(): string[] {
+  const lista = ["localhost:3000", "*.hostingersite.com"];
+
+  const configurado = process.env.NEXT_PUBLIC_APP_URL;
+  if (configurado) {
+    try {
+      lista.push(new URL(configurado).host);
+    } catch {
+      // Endereço malformado no .env: seguimos com os padrões.
+    }
+  }
+
+  return [...new Set(lista)];
+}
+
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  experimental: {
+    serverActions: { allowedOrigins: dominiosAutorizados() },
+  },
   images: {
     remotePatterns: [{ protocol: "https", hostname: "*.supabase.co", pathname: "/storage/v1/object/public/**" }],
   },
