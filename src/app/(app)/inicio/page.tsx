@@ -12,6 +12,7 @@ import { Cartao, CabecalhoCartao } from "@/components/ui/Cartao";
 import { EstadoVazio } from "@/components/ui/Estados";
 import { Brasao } from "@/components/brand/Brasao";
 import { ConviteParaInstalar } from "@/components/pwa/ConviteParaInstalar";
+import { PedirNotificacoes } from "@/components/pwa/PedirNotificacoes";
 import { ResumoFinanceiro } from "@/components/financeiro/CartaoDePagamento";
 import { Selo } from "@/components/ui/Selo";
 import { formatarPercentual, plural } from "@/lib/format";
@@ -31,6 +32,15 @@ export default async function PaginaInicio() {
 
   const totalEmAberto = emAberto.reduce((soma, c) => soma + c.amount_cents, 0);
   const minhaPosicao = ranking.findIndex((l) => l.profileId === perfil.id) + 1;
+
+  const convites = (
+    <>
+      <ConviteParaInstalar />
+      {perfil.notifications_enabled === false ? null : (
+        <PedirNotificacoes chavePublica={process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? null} />
+      )}
+    </>
+  );
 
   const meusNumeros = (
     <div className="grid grid-cols-2 gap-3">
@@ -80,8 +90,6 @@ export default async function PaginaInicio() {
         <ResumoFinanceiro totalEmAbertoCentavos={totalEmAberto} />
 
       {meusNumeros}
-
-      <ConviteParaInstalar />
         {meusNumeros}
       </div>
     );
@@ -105,6 +113,8 @@ export default async function PaginaInicio() {
         {perfil.is_member ? <Selo tom="ouro">Mensalista</Selo> : <Selo tom="neutro">Avulso</Selo>}
       </div>
 
+      {convites}
+
       <CartaoDaRodada rodada={proxima} confirmados={confirmados} esperando={esperando} destaque>
         {aceitaPresenca && <BotoesDePresenca rodadaId={proxima.id} estado={estado} />}
       </CartaoDaRodada>
@@ -121,8 +131,6 @@ export default async function PaginaInicio() {
       <ResumoFinanceiro totalEmAbertoCentavos={totalEmAberto} />
 
       {meusNumeros}
-
-      <ConviteParaInstalar />
     </div>
   );
 }
