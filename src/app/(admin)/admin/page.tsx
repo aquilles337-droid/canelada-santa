@@ -161,6 +161,37 @@ export default async function PaginaAdmin() {
           </Botao>
         </Link>
       </div>
+
+      {/* A barra de baixo só comporta cinco atalhos. O menu completo do painel
+          fica aqui, para nenhuma tela ficar sem caminho até ela. */}
+      <Cartao>
+        <CabecalhoCartao titulo="Gerenciar" icone={<span aria-hidden>⚙️</span>} />
+        <ul className="grid grid-cols-2 gap-2">
+          {[
+            { href: "/admin/rodadas", rotulo: "Rachas", emoji: "⚽" },
+            { href: "/admin/jogadores", rotulo: "Jogadores", emoji: "👥" },
+            { href: "/admin/mensalistas", rotulo: "Mensalistas", emoji: "📅" },
+            { href: "/admin/pagamentos", rotulo: "Pagamentos e multas", emoji: "💰" },
+            { href: "/admin/temporadas", rotulo: "Temporadas", emoji: "🏆" },
+            { href: "/admin/configuracoes", rotulo: "Ajustes", emoji: "🔧" },
+            { href: "/historico", rotulo: "Histórico", emoji: "📚" },
+            { href: "/hall-da-fama", rotulo: "Hall da Fama", emoji: "🏛️" },
+          ].map((item) => (
+            <li key={item.href}>
+              <Link
+                href={item.href}
+                className="flex h-full items-center gap-2.5 rounded-xl border border-linha bg-carvao/60 px-3 py-3 text-sm transition-colors hover:border-ouro/40"
+              >
+                <span aria-hidden>{item.emoji}</span>
+                <span className="min-w-0 flex-1">{item.rotulo}</span>
+                <span aria-hidden className="text-cinza-escuro">
+                  →
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </Cartao>
     </div>
   );
 }
