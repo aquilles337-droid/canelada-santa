@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { exigirAdmin } from "@/server/auth/sessao";
 import { baixarCobrancaManualmente, perdoarCobranca, reabrirCobranca } from "@/server/services/cobrancas";
 import {
+  atualizarValorDasMensalidades,
   gerarMensalidadesDoMes,
   marcarMensalidadePaga,
   perdoarMensalidade,
@@ -89,6 +90,20 @@ export async function reabrirMensalidadeAction(mensalidadeId: string): Promise<R
     await reabrirMensalidade(mensalidadeId, admin.id);
     atualizarFinanceiro();
     return sucesso();
+  } catch (erro) {
+    return comoResultado(erro);
+  }
+}
+
+/** Passa o valor configurado hoje para as mensalidades do mes ainda em aberto. */
+export async function atualizarValorDasMensalidadesAction(): Promise<
+  Resultado<{ atualizadas: number; valorCentavos: number }>
+> {
+  try {
+    const admin = await exigirAdmin();
+    const resultado = await atualizarValorDasMensalidades(admin.id);
+    atualizarFinanceiro();
+    return sucesso(resultado);
   } catch (erro) {
     return comoResultado(erro);
   }

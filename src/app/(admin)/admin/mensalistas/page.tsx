@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { exigirAdmin } from "@/server/auth/sessao";
-import { panoramaDeMensalistas } from "@/server/services/mensalidades";
+import { divergenciaDeValor, panoramaDeMensalistas } from "@/server/services/mensalidades";
 import { lerConfiguracoes } from "@/server/services/configuracoes";
 import { Cartao, CabecalhoCartao } from "@/components/ui/Cartao";
 import { Avatar } from "@/components/ui/Avatar";
@@ -10,6 +10,7 @@ import { formatarData, formatarDinheiro, mesAno } from "@/lib/format";
 import type { Profile } from "@/lib/supabase/tipos";
 import { GerarMensalidades } from "./GerarMensalidades";
 import { AcoesDaMensalidade } from "./AcoesDaMensalidade";
+import { AvisoDeValor } from "./AvisoDeValor";
 
 export const metadata: Metadata = { title: "Mensalistas" };
 
@@ -40,7 +41,11 @@ function LinhaDeJogador({
 export default async function PaginaAdminMensalistas() {
   await exigirAdmin();
 
-  const [panorama, configuracoes] = await Promise.all([panoramaDeMensalistas(), lerConfiguracoes()]);
+  const [panorama, configuracoes, divergencia] = await Promise.all([
+    panoramaDeMensalistas(),
+    lerConfiguracoes(),
+    divergenciaDeValor(),
+  ]);
   const competencia = mesAno(`${panorama.competencia}T12:00:00.000Z`);
 
   const emAberto =
@@ -61,6 +66,11 @@ export default async function PaginaAdminMensalistas() {
           <GerarMensalidades />
         </div>
       </Cartao>
+
+      <AvisoDeValor
+        desatualizadas={divergencia.desatualizadas}
+        valorAtualCentavos={divergencia.valorAtualCentavos}
+      />
 
       <div className="grid grid-cols-3 gap-2">
         {[

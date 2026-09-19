@@ -212,6 +212,103 @@ export async function marcarMensalidadePaga(mensalidadeId: string, atorId: strin
   });
 }
 
+export interface DivergenciaDeValor {
+  competencia: string;
+  valorAtualCentavos: number;
+  /** Mensalidades em aberto cujo valor ficou diferente do configurado. */
+  desatualizadas: number;
+}
+
+/**
+ * Mensalidades do mes que ficaram com valor diferente do configurado hoje.
+ *
+ * Acontece quando o grupo muda o valor depois de a competencia ja ter sido
+ * gerada. Quem ja pagou nunca entra nesta conta: o valor daquele mes foi o
+ * que foi.
+ */
+export async function divergenciaDeValor(
+  referencia: Date = new Date(),
+): Promise<DivergenciaDeValor> {
+  const configuracoes = await lerConfiguracoes();
+  const competencia = competenciaDoMes(referencia);
+
+  const { data } = await clienteAdmin()
+    .from("memberships")
+    .select("id, amount_cents")
+    .eq("competence", competencia)
+    .in("status", ["pending", "overdue"]);
+
+  return {
+    competencia,
+    valorAtualCentavos: configuracoes.monthly_fee_cents,
+    desatualizadas: (data ?? []).filter((m) => m.amount_cents !== configuracoes.monthly_fee_cents)
+      .length,
+  };
+}
+
+/**
+ * Passa o valor configurado hoje para as mensalidades do mes que ainda estao
+ * em aberto.
+ *
+ * Mensalidade paga ou perdoada nao e tocada — o valor daquele mes ja foi
+ * acertado, e mexer nisso bagunçaria o historico.
+ *
+ * O PIX em aberto daquela cobranca e cancelado junto: se ficasse valendo, o
+ * jogador pagaria o valor velho num codigo gerado antes da mudanca, e a
+ * cobranca seria quitada por um valor que nao e mais o dela.
+ */
+export async function atualizarValorDasMensalidades(
+  atorId: string,
+  referencia: Date = new Date(),
+): Promise<{ atualizadas: number; valorCentavos: number }> {
+  const configuracoes = await lerConfiguracoes();
+  const competencia = competenciaDoMes(referencia);
+  const valor = configuracoes.monthly_fee_cents;
+  const admin = clienteAdmin();
+
+  const { data: mensalidades } = await admin
+    .from("memberships")
+    .select("id, amount_cents")
+    .eq("competence", competencia)
+    .in("status", ["pending", "overdue"]);
+
+  const paraAtualizar = (mensalidades ?? []).filter((m) => m.amount_cents !== valor);
+  if (paraAtualizar.length === 0) return { atualizadas: 0, valorCentavos: valor };
+
+  const ids = paraAtualizar.map((m) => m.id);
+  await admin.from("memberships").update({ amount_cents: valor }).in("id", ids);
+
+  const { data: cobrancas } = await admin
+    .from("charges")
+    .update({ amount_cents: valor })
+    .in("membership_id", ids)
+    .in("status", ["pending", "expired"])
+    .select("id");
+
+  const cobrancaIds = (cobrancas ?? []).map((c) => c.id);
+  if (cobrancaIds.length > 0) {
+    await admin
+      .from("payments")
+      .update({ status: "cancelled" })
+      .in("charge_id", cobrancaIds)
+      .eq("status", "pending");
+  }
+
+  await registrarAuditoria({
+    atorId,
+    acao: "cobranca.criada",
+    entidade: "memberships",
+    depois: {
+      competencia,
+      quantidade: paraAtualizar.length,
+      valor_novo: valor,
+      motivo: "valor da mensalidade atualizado pelo administrador",
+    },
+  });
+
+  return { atualizadas: paraAtualizar.length, valorCentavos: valor };
+}
+
 /**
  * Volta a cobrar uma mensalidade perdoada ou cancelada.
  *
