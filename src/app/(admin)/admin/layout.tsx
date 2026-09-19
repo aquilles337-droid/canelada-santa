@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { usuarioAtual } from "@/server/auth/sessao";
 import { Brasao } from "@/components/brand/Brasao";
-import { NavegacaoInferior, NAV_ADMIN } from "@/components/nav/NavegacaoInferior";
+import { NavegacaoInferior } from "@/components/nav/NavegacaoInferior";
 import { Selo } from "@/components/ui/Selo";
 
 export default async function LayoutAdmin({ children }: { children: React.ReactNode }) {
@@ -29,7 +29,7 @@ export default async function LayoutAdmin({ children }: { children: React.ReactN
       </header>
 
       <main className="mx-auto max-w-lg px-4 pt-4 pb-24">{children}</main>
-      <NavegacaoInferior itens={NAV_ADMIN} ehAdmin />
+      <NavegacaoInferior variante="admin" />
     </div>
   );
 }

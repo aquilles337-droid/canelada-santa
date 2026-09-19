@@ -14,20 +14,36 @@ import {
   IconeRanking,
 } from "./Icones";
 
-export interface ItemNavegacao {
+interface ItemNavegacao {
   href: string;
   rotulo: string;
   Icone: ComponentType<SVGProps<SVGSVGElement>>;
 }
 
-export const NAV_JOGADOR: ItemNavegacao[] = [
+/**
+ * As listas vivem AQUI DENTRO, num módulo de cliente, e nunca são exportadas.
+ *
+ * Um componente de servidor que importe um valor de um módulo de cliente não
+ * recebe o valor: recebe um marcador de referência. Era o que acontecia antes
+ * — o layout fazia `[...NAV_JOGADOR]` e quebrava em produção com
+ * "is not iterable", porque aquilo nunca foi um array de verdade.
+ *
+ * Agora a única coisa que atravessa a fronteira é um texto: a variante.
+ */
+const NAV_JOGADOR: ItemNavegacao[] = [
   { href: "/inicio", rotulo: "Início", Icone: IconeCasa },
   { href: "/racha", rotulo: "Racha", Icone: IconeBola },
   { href: "/ranking", rotulo: "Ranking", Icone: IconeRanking },
   { href: "/perfil", rotulo: "Perfil", Icone: IconePerfil },
 ];
 
-export const NAV_ADMIN: ItemNavegacao[] = [
+const ITEM_ADMIN: ItemNavegacao = {
+  href: "/admin",
+  rotulo: "Admin",
+  Icone: IconeEngrenagem,
+};
+
+const NAV_ADMIN: ItemNavegacao[] = [
   { href: "/admin", rotulo: "Painel", Icone: IconeCasa },
   { href: "/admin/rodadas", rotulo: "Rachas", Icone: IconeBola },
   { href: "/admin/jogadores", rotulo: "Jogadores", Icone: IconeJogadores },
@@ -36,17 +52,28 @@ export const NAV_ADMIN: ItemNavegacao[] = [
 ];
 
 /**
+ * Qual barra mostrar:
+ *
+ * - `jogador`       — as quatro abas de sempre
+ * - `jogador-admin` — as mesmas quatro, mais o atalho para o painel
+ * - `admin`         — a barra do painel administrativo
+ */
+export type VarianteDeNavegacao = "jogador" | "jogador-admin" | "admin";
+
+const POR_VARIANTE: Record<VarianteDeNavegacao, ItemNavegacao[]> = {
+  jogador: NAV_JOGADOR,
+  "jogador-admin": [...NAV_JOGADOR, ITEM_ADMIN],
+  admin: NAV_ADMIN,
+};
+
+/**
  * Navegacao inferior fixa. O aplicativo e usado em pe, com uma mao — os
  * alvos de toque ocupam toda a altura da barra.
  */
-export function NavegacaoInferior({
-  itens,
-  ehAdmin = false,
-}: {
-  itens: ItemNavegacao[];
-  ehAdmin?: boolean;
-}) {
+export function NavegacaoInferior({ variante }: { variante: VarianteDeNavegacao }) {
   const caminho = usePathname();
+  const itens = POR_VARIANTE[variante];
+  const ehAdmin = variante === "admin";
 
   // O primeiro item so acende no caminho exato; os demais aceitam subrotas.
   const ativo = (href: string, indice: number) =>
