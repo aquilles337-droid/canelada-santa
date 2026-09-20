@@ -125,6 +125,7 @@ supabase/migrations/0013_fotos.sql
 supabase/migrations/0014_corrige_guarda_de_perfil.sql
 supabase/migrations/0015_sincroniza_mensalidade.sql
 supabase/migrations/0016_reabrir_cobranca.sql
+supabase/migrations/0017_corrige_estatisticas.sql
 ```
 
 Depois rode o `supabase/seed.sql`, que cria a temporada atual e o catálogo de conquistas.
