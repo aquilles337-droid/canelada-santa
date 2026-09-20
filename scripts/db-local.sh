@@ -74,6 +74,32 @@ run "$PSQL -d $DB -f '$ROOT/supabase/test/50_mensalidade_assertions.sql'"
 echo "→ rodando asserções das estatísticas"
 run "$PSQL -d $DB -f '$ROOT/supabase/test/60_estatisticas_assertions.sql'"
 
+echo "→ preparando o terreno do reinício de temporada"
+run "$PSQL -d $DB -f '$ROOT/supabase/test/65_antes_do_reinicio.sql'"
+
+echo "→ conferindo que a consulta de conferência só lê"
+run "$PSQL -d $DB -f '$ROOT/supabase/conferir-dados-da-temporada.sql'" >/dev/null
+if [ "$(run "$PSQL -d $DB -tAc 'select count(*) from public.rounds'")" = "0" ]; then
+  echo "✗ FALHOU: conferir-dados-da-temporada.sql apagou rodadas — ele so pode ler"
+  exit 1
+fi
+
+echo "→ conferindo que o reinício recusa rodar sem confirmação"
+if run "$PSQL -d $DB -f '$ROOT/supabase/reiniciar-temporada.sql'" >/dev/null 2>&1; then
+  echo "✗ FALHOU: o reinicio rodou com 'confirmo := false'"
+  exit 1
+fi
+echo "   • recusou, como tem de ser"
+
+echo "→ rodando o reinício de verdade"
+sed 's/confirmo boolean := false/confirmo boolean := true/' \
+  "$ROOT/supabase/reiniciar-temporada.sql" > "$ROOT/.tmp-pg/reinicio.sql"
+if [ -n "$RUNAS" ]; then chown postgres "$ROOT/.tmp-pg/reinicio.sql"; fi
+run "$PSQL -d $DB -f '$ROOT/.tmp-pg/reinicio.sql'"
+
+echo "→ rodando asserções do reinício"
+run "$PSQL -d $DB -f '$ROOT/supabase/test/70_reinicio_assertions.sql'"
+
 echo "→ conferindo a lista de instalação (o mesmo arquivo que o README manda rodar no Supabase)"
 run "$PSQL -d $DB -f '$ROOT/supabase/verificar-instalacao.sql'"
 

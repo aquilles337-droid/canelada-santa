@@ -37,7 +37,7 @@
 7. [Ligar as tarefas automáticas](#7-ligar-as-tarefas-automáticas)
 8. [Primeiro acesso do grupo](#8-primeiro-acesso-do-grupo)
 9. [Como o sistema funciona por dentro](#9-como-o-sistema-funciona-por-dentro)
-10. [Testes e verificação](#10-testes-e-verificação)
+10. [Testes e verificação](#10-testes-e-verificação) · [Apagar dados de teste](#101-apagar-os-dados-de-teste-e-começar-do-zero)
 11. [Perguntas frequentes](#11-perguntas-frequentes)
 
 ---
@@ -491,6 +491,44 @@ votar em si mesmo, cobrar a mesma coisa duas vezes, um webhook repetido confirma
 de novo. Se alguma proteção sumir numa alteração futura, isso quebra antes de chegar no
 Supabase.
 
+Ele também roda o **reinício de temporada** de ponta a ponta: confere que o script recusa sem
+confirmação, aplica o reinício de verdade e exige que o movimento tenha sumido **e** que
+jogadores, configurações, temporada, conquistas e notas continuem de pé.
+
+---
+
+## 10.1 Apagar os dados de teste e começar do zero
+
+Depois de testar o aplicativo com dados inventados, dá para zerar tudo e começar como se
+fosse o primeiro dia — **sem ninguém precisar se cadastrar de novo**.
+
+Dois arquivos, nessa ordem, no **SQL Editor** do Supabase:
+
+| Arquivo | O que faz |
+|---|---|
+| `supabase/conferir-dados-da-temporada.sql` | Só lê. Mostra quantas rodadas, partidas, gols, cobranças e fotos existem hoje |
+| `supabase/reiniciar-temporada.sql` | Apaga. Abra o arquivo e troque `confirmo := false` por `confirmo := true` antes de colar |
+
+**O que some:** rodadas, listas de presença, convidados, times, partidas, gols, assistências,
+votação de craque e bagre, fotos (inclusive os arquivos no Storage), conquistas entregues,
+mensalidades, cobranças e os PIX gerados.
+
+**O que fica:** os jogadores e suas contas, quem é administrador, quem é mensalista, quem está
+banido, todas as configurações do racha, a temporada, o catálogo de conquistas, os aparelhos
+que já aceitaram notificação e as notas que os jogadores deram uns aos outros.
+
+No topo do arquivo há cinco chaves para ajustar o que o reinício leva — entre elas
+`apagar_avaliacoes` (as notas do sorteio, desligada por padrão porque nota não é dado de
+temporada) e `apagar_financeiro_inteiro` (ligada por padrão: mensalidade tem mês, não
+temporada, então o "começar agora" apaga o histórico financeiro todo).
+
+O script **recusa rodar** enquanto `confirmo` for `false`, e termina mostrando uma tabela de
+conferência que tem de dar zero em tudo. Não tem desfazer — se quiser rede de proteção, tire
+um backup antes em **Database → Backups**.
+
+> Para apagar um jogador de teste específico (uma conta que não é de ninguém do grupo), vá em
+> **Authentication → Users**, ache pelo telefone e apague. O perfil e tudo dele somem junto.
+
 ---
 
 ## 11. Perguntas frequentes
@@ -516,6 +554,10 @@ Marque de novo. A multa anterior é cancelada antes de qualquer nova ser criada.
 **O que acontece na virada do ano?**
 No dia configurado (10 de janeiro, por padrão) começa uma temporada nova e as estatísticas
 passam a contar nela. **Nada é apagado**: o histórico e o Hall da Fama continuam com tudo.
+
+**Testei com dados inventados. Dá para zerar?**
+Dá. Veja [10.1](#101-apagar-os-dados-de-teste-e-começar-do-zero): dois arquivos no SQL Editor
+apagam todo o movimento e deixam jogadores, administradores e configurações intactos.
 
 **Posso mudar os valores depois?**
 Pode, a qualquer momento, em **Admin → Ajustes**. As rodadas que já existem não mudam.
