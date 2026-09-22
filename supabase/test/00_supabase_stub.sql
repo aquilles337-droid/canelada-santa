@@ -58,3 +58,23 @@ create table if not exists storage.objects (
 );
 
 alter table storage.objects enable row level security;
+
+-- O Supabase de verdade PROIBE apagar linha de storage.objects por SQL: um
+-- gatilho manda usar a Storage API, para o arquivo nunca ficar orfao no
+-- disco depois que a linha some. O stub reproduz isso — sem o gatilho aqui,
+-- um script que roda limpo na maquina quebra no painel do Supabase, que foi
+-- exatamente o que aconteceu.
+create or replace function storage.protect_delete()
+returns trigger
+language plpgsql
+as $$
+begin
+  raise exception 'Direct deletion from storage tables is not allowed. Use the Storage API instead.'
+    using errcode = '42501',
+          hint    = 'This prevents accidental data loss from orphaned objects.';
+end;
+$$;
+
+create trigger protect_delete_objects
+  before delete on storage.objects
+  for each row execute function storage.protect_delete();

@@ -47,9 +47,11 @@ declare
   -- está preso às rodadas desta temporada e aos meses dela.
   apagar_financeiro_inteiro boolean := true;
 
-  -- Apaga também os arquivos das fotos no Storage. Com false, as linhas
-  -- somem do banco mas as imagens ficam ocupando espaço sem ninguém para
-  -- olhar para elas.
+  -- Tenta apagar também os arquivos das fotos no Storage. O Supabase
+  -- costuma RECUSAR apagar arquivo por SQL — ele exige a Storage API para o
+  -- arquivo não ficar órfão no disco. Quando recusa, o script não quebra:
+  -- segue em frente e a conferência no fim mostra quantos arquivos ficaram
+  -- para trás, com as duas formas de limpar.
   apagar_arquivos_das_fotos boolean := true;
 
   -- Avisos, registros de webhook e histórico das tarefas automáticas.
@@ -96,15 +98,25 @@ begin
   -- ----------------------------------------------------------
   -- 1. Arquivos das fotos — antes das rodadas, senão o caminho se perde
   -- ----------------------------------------------------------
-  if apagar_arquivos_das_fotos then
-    delete from storage.objects
-    where bucket_id = 'fotos-rodadas'
-      and name in (
-        select storage_path from public.round_photos
-        where round_id = any (v_alvo)
-      );
-    get diagnostics v_fotos = row_count;
-    raise notice '  % arquivos de foto apagados do Storage', v_fotos;
+  select count(*) into v_fotos
+  from public.round_photos where round_id = any (v_alvo);
+
+  if apagar_arquivos_das_fotos and v_fotos > 0 then
+    -- O bloco separado é o que segura o tranco: o Supabase proíbe apagar
+    -- linha de storage.objects por SQL, e sem isto o erro derrubaria o
+    -- reinício inteiro depois de já ter apagado meio banco.
+    begin
+      delete from storage.objects
+      where bucket_id = 'fotos-rodadas'
+        and name in (
+          select storage_path from public.round_photos
+          where round_id = any (v_alvo)
+        );
+      raise notice '  % arquivos de foto apagados do Storage', v_fotos;
+    exception when others then
+      raise notice '  o Supabase nao deixa apagar arquivo por SQL (%)', sqlerrm;
+      raise notice '  % arquivos continuam no Storage — veja a conferencia no fim', v_fotos;
+    end;
   end if;
 
   -- ----------------------------------------------------------
@@ -203,8 +215,24 @@ select * from (
   select 7, 'conquistas dadas', count(*)::text from public.player_achievements
     where season_id = (select id from temporada)
   union all
-  select 8, 'jogadores mantidos', count(*)::text from public.profiles
+  select 8, 'arquivos de foto largados no Storage', count(*)::text
+    from storage.objects o
+    where o.bucket_id = 'fotos-rodadas'
+      and not exists (select 1 from public.round_photos f where f.storage_path = o.name)
   union all
-  select 9, 'administradores mantidos', count(*)::text from public.profiles where role = 'admin'
+  select 9, 'jogadores mantidos', count(*)::text from public.profiles
+  union all
+  select 10, 'administradores mantidos', count(*)::text from public.profiles where role = 'admin'
 ) linhas
 order by ordem;
+
+-- ============================================================
+-- Sobrou "arquivos de foto largados no Storage" acima de zero?
+-- ============================================================
+-- É o Supabase protegendo o disco: ele não deixa apagar arquivo por SQL.
+-- As fotos já sumiram do aplicativo (ninguém mais as vê); só os arquivos
+-- ficaram ocupando espaço. Duas formas de limpar:
+--
+--   • No painel: Storage → fotos-rodadas → selecionar tudo → Delete
+--   • No terminal, com o projeto na sua máquina: npm run fotos:limpar
+--     (apaga só arquivo órfão, nunca foto de rodada que ainda existe)

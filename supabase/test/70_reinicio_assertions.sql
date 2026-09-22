@@ -51,9 +51,19 @@ begin
   perform pg_temp.exigir_zero((select count(*) from public.match_events), 'gols e assistencias');
   perform pg_temp.exigir_zero((select count(*) from public.round_votes), 'votos de craque e bagre');
   perform pg_temp.exigir_zero((select count(*) from public.round_photos), 'fotos das rodadas');
-  perform pg_temp.exigir_zero(
-    (select count(*) from storage.objects where bucket_id = 'fotos-rodadas'),
-    'arquivos de foto no Storage');
+  -- O Supabase proibe apagar arquivo por SQL. O reinicio NAO pode quebrar
+  -- por causa disso: ele segue, a foto some do aplicativo e o arquivo fica
+  -- orfao no disco ate alguem rodar "npm run fotos:limpar".
+  perform pg_temp.exigir_rein(
+    exists (select 1 from storage.objects where bucket_id = 'fotos-rodadas'),
+    'o arquivo da foto sobrevive (o Storage recusa apagar por SQL)');
+  perform pg_temp.exigir_rein(
+    not exists (
+      select 1 from storage.objects o
+      join public.round_photos f on f.storage_path = o.name
+      where o.bucket_id = 'fotos-rodadas'
+    ),
+    'o arquivo que sobrou e orfao: nenhuma rodada aponta mais para ele');
   perform pg_temp.exigir_zero((select count(*) from public.charges), 'cobrancas');
   perform pg_temp.exigir_zero((select count(*) from public.payments), 'pagamentos (caem junto com a cobranca)');
   perform pg_temp.exigir_zero((select count(*) from public.memberships), 'mensalidades');

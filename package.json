@@ -13,7 +13,8 @@
     "test:watch": "vitest",
     "db:local": "bash scripts/db-local.sh",
     "gen:icons": "node scripts/gen-icons.mjs",
-    "gen:vapid": "node scripts/gen-vapid.mjs"
+    "gen:vapid": "node scripts/gen-vapid.mjs",
+    "fotos:limpar": "node scripts/limpar-fotos.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.8.0",

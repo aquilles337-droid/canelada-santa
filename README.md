@@ -510,8 +510,8 @@ Dois arquivos, nessa ordem, no **SQL Editor** do Supabase:
 | `supabase/reiniciar-temporada.sql` | Apaga. Abra o arquivo e troque `confirmo := false` por `confirmo := true` antes de colar |
 
 **O que some:** rodadas, listas de presença, convidados, times, partidas, gols, assistências,
-votação de craque e bagre, fotos (inclusive os arquivos no Storage), conquistas entregues,
-mensalidades, cobranças e os PIX gerados.
+votação de craque e bagre, fotos, conquistas entregues, mensalidades, cobranças e os PIX
+gerados.
 
 **O que fica:** os jogadores e suas contas, quem é administrador, quem é mensalista, quem está
 banido, todas as configurações do racha, a temporada, o catálogo de conquistas, os aparelhos
@@ -523,8 +523,23 @@ temporada) e `apagar_financeiro_inteiro` (ligada por padrão: mensalidade tem m�
 temporada, então o "começar agora" apaga o histórico financeiro todo).
 
 O script **recusa rodar** enquanto `confirmo` for `false`, e termina mostrando uma tabela de
-conferência que tem de dar zero em tudo. Não tem desfazer — se quiser rede de proteção, tire
-um backup antes em **Database → Backups**.
+conferência. Não tem desfazer — se quiser rede de proteção, tire um backup antes em
+**Database → Backups**.
+
+**Os arquivos das fotos são a única coisa que fica para trás.** O Supabase proíbe apagar
+arquivo por SQL — é uma proteção dele, para o arquivo não ficar órfão no disco. O reinício
+não quebra por causa disso: ele segue, as fotos somem do aplicativo e a linha
+**"arquivos de foto largados no Storage"** na conferência diz quantos arquivos sobraram. Para
+limpá-los:
+
+```bash
+npm run fotos:limpar          # ensaio: mostra o que apagaria
+npm run fotos:limpar -- --sim # apaga de verdade
+```
+
+O script só apaga arquivo **órfão** — sem nenhuma rodada apontando para ele. Foto de rodada
+que ainda existe nunca é tocada. Se preferir não usar o terminal: **Storage → fotos-rodadas →
+selecionar tudo → Delete**.
 
 > Para apagar um jogador de teste específico (uma conta que não é de ninguém do grupo), vá em
 > **Authentication → Users**, ache pelo telefone e apague. O perfil e tudo dele somem junto.
