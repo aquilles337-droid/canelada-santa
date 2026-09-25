@@ -10,6 +10,7 @@ import { Selo } from "@/components/ui/Selo";
 import { EstadoVazio } from "@/components/ui/Estados";
 import { ErroDeRegra } from "@/lib/erros";
 import { formatarHora } from "@/lib/format";
+import { paraCamposLocais } from "@/lib/fuso";
 import { PainelDeTimes } from "@/components/times/PainelDeTimes";
 import Link from "next/link";
 import { Botao } from "@/components/ui/Botao";
@@ -59,7 +60,13 @@ export default async function PaginaAdminRodada({ params }: { params: Promise<{ 
         esperando={esperando.length}
         destaque
       >
-        <AcoesDaRodada rodadaId={rodada.id} situacao={rodada.status} />
+        <AcoesDaRodada
+          rodadaId={rodada.id}
+          situacao={rodada.status}
+          // Sugestão para reabrir: até a hora do racha, que é o limite. Quem
+          // quiser fechar antes é só mudar.
+          fechamentoSugerido={paraCamposLocais(rodada.starts_at)}
+        />
       </CartaoDaRodada>
 
       <div className="grid grid-cols-2 gap-2">

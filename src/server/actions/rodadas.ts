@@ -11,6 +11,7 @@ import {
   fecharLista,
   finalizarRodada,
   iniciarRodada,
+  reabrirLista,
 } from "@/server/services/rodadas";
 import { lerConfiguracoes } from "@/server/services/configuracoes";
 import { lerDinheiro } from "@/lib/format";
@@ -198,4 +199,30 @@ export async function finalizarRodadaAction(id: string): Promise<Resultado<Round
 
 export async function cancelarRodadaAction(id: string): Promise<Resultado<Round>> {
   return acaoDeCicloDeVida(id, cancelarRodada);
+}
+
+/**
+ * Reabre a lista de um racha que ja fechou.
+ *
+ * Recebe o novo horario de fechamento em data e hora separadas, no fuso do
+ * grupo — é o mesmo par de campos do formulario de criacao.
+ */
+export async function reabrirListaAction(
+  rodadaId: string,
+  data: string,
+  hora: string,
+): Promise<Resultado<Round>> {
+  const formato = z.object({
+    data: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Informe a data em que a lista fecha"),
+    hora: z.string().regex(/^\d{2}:\d{2}$/, "Informe o horário em que a lista fecha"),
+  });
+
+  const bruto = formato.safeParse({ data, hora });
+  if (!bruto.success) {
+    return falha("dados_invalidos", bruto.error.issues[0]?.message ?? "Confira o horário.");
+  }
+
+  return acaoDeCicloDeVida(rodadaId, (id, ator) =>
+    reabrirLista(id, paraUTC(bruto.data.data, bruto.data.hora), ator),
+  );
 }

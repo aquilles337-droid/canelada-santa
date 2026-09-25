@@ -26,6 +26,7 @@ export type AcaoAuditada =
   | "rodada.alterada"
   | "rodada.aberta"
   | "rodada.fechada"
+  | "rodada.reaberta"
   | "rodada.finalizada"
   | "rodada.cancelada"
   | "presenca.marcada"

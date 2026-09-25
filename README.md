@@ -594,6 +594,14 @@ escolher quem sai é decisão sua, não dele: tire a pessoa da lista primeiro. M
 local avisa todo mundo que está na lista. O valor do avulso e as multas daquele racha não mudam
 por lá: ficaram travados na criação para não reescrever o que já foi cobrado.
 
+**Fechei a lista sem querer / ainda cabe mais gente. Dá para reabrir?**
+Dá. No racha, em **Admin → Rachas**, aparece **Reabrir lista** quando ela está fechada. Ele pede
+um novo horário de fechamento, e esse horário **precisa ser no futuro** — a tarefa automática
+fecha de novo, no minuto seguinte, qualquer lista cujo horário já passou, e a entrada é recusada
+depois do horário mesmo com o racha aberto. Ao reabrir, todo mundo recebe um aviso. Quem já
+entrou e os convidados que já foram cobrados continuam como estão: reabrir abre vaga para quem
+está fora, não desfaz cobrança de quem está dentro.
+
 **Marquei uma falta errada.**
 Marque de novo. A multa anterior é cancelada antes de qualquer nova ser criada.
 

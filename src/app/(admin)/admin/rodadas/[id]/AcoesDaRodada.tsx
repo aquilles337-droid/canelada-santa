@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   abrirRodadaAction,
@@ -8,16 +8,30 @@ import {
   fecharListaAction,
   finalizarRodadaAction,
   iniciarRodadaAction,
+  reabrirListaAction,
 } from "@/server/actions/rodadas";
 import { promoverFilaAction } from "@/server/actions/presenca";
 import { Botao } from "@/components/ui/Botao";
+import { Campo } from "@/components/ui/Campo";
 import { useToast } from "@/components/ui/Toast";
 import type { RoundStatus } from "@/lib/supabase/tipos";
 
-export function AcoesDaRodada({ rodadaId, situacao }: { rodadaId: string; situacao: RoundStatus }) {
+export function AcoesDaRodada({
+  rodadaId,
+  situacao,
+  fechamentoSugerido,
+}: {
+  rodadaId: string;
+  situacao: RoundStatus;
+  /** Data e hora, no fuso do grupo, para pré-preencher a reabertura. */
+  fechamentoSugerido: { data: string; hora: string };
+}) {
   const toast = useToast();
   const router = useRouter();
   const [executando, iniciar] = useTransition();
+  const [reabrindo, setReabrindo] = useState(false);
+  const [data, setData] = useState(fechamentoSugerido.data);
+  const [hora, setHora] = useState(fechamentoSugerido.hora);
 
   const rodar = (acao: () => Promise<{ ok: boolean; mensagem?: string }>, mensagemOk: string) =>
     iniciar(async () => {
@@ -68,12 +82,64 @@ export function AcoesDaRodada({ rodadaId, situacao }: { rodadaId: string; situac
       )}
 
       {situacao === "closed" && (
-        <Botao
-          disabled={executando}
-          onClick={() => rodar(() => iniciarRodadaAction(rodadaId), "Racha começou!")}
-        >
-          Iniciar racha
-        </Botao>
+        <>
+          <Botao
+            disabled={executando}
+            onClick={() => rodar(() => iniciarRodadaAction(rodadaId), "Racha começou!")}
+          >
+            Iniciar racha
+          </Botao>
+          <Botao
+            variante="contorno"
+            disabled={executando}
+            onClick={() => setReabrindo((aberto) => !aberto)}
+          >
+            {reabrindo ? "Deixar fechada" : "Reabrir lista"}
+          </Botao>
+        </>
+      )}
+
+      {situacao === "closed" && reabrindo && (
+        <div className="w-full rounded-xl border border-linha bg-carvao/60 p-3">
+          <p className="mb-2 text-xs text-cinza">
+            A lista volta a aceitar gente até o horário abaixo. Ele precisa ser no futuro: a
+            tarefa automática fecha de novo qualquer lista cujo horário já passou.
+          </p>
+
+          <div className="grid grid-cols-2 gap-2">
+            <Campo
+              type="date"
+              rotulo="Fecha em"
+              value={data}
+              onChange={(e) => setData(e.target.value)}
+            />
+            <Campo
+              type="time"
+              rotulo="Às"
+              value={hora}
+              onChange={(e) => setHora(e.target.value)}
+            />
+          </div>
+
+          <Botao
+            larguraTotal
+            className="mt-2"
+            disabled={executando || !data || !hora}
+            onClick={() =>
+              rodar(async () => {
+                const r = await reabrirListaAction(rodadaId, data, hora);
+                if (r.ok) setReabrindo(false);
+                return r;
+              }, "Lista reaberta. O grupo foi avisado.")
+            }
+          >
+            Reabrir agora
+          </Botao>
+
+          <p className="mt-2 text-[11px] text-cinza-escuro">
+            Quem já entrou e os convidados que foram cobrados continuam como estão.
+          </p>
+        </div>
       )}
 
       {situacao === "in_progress" && (

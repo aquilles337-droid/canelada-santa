@@ -3,7 +3,7 @@ import "server-only";
 import { clienteAdmin } from "@/lib/supabase/admin";
 import { erroDeRegra } from "@/lib/erros";
 import { faixaDe, type ParticipanteDoDominio, type RodadaDoDominio } from "@/domain/tipos";
-import { avaliarEdicao, type EdicaoDaRodada } from "@/domain/edicaoDeRodada";
+import { avaliarEdicao, avaliarReabertura, type EdicaoDaRodada } from "@/domain/edicaoDeRodada";
 import { formatarDataHora } from "@/lib/format";
 import type {
   PrecosDaRodada,
@@ -496,6 +496,78 @@ export async function fecharLista(rodadaId: string, atorId: string | null): Prom
   });
 
   return rodada;
+}
+
+/**
+ * Reabre uma lista que já tinha fechado.
+ *
+ * Exige um horário de fechamento novo porque mudar só a situação não
+ * reabriria nada: a regra de entrada recusa quem chega depois do horário de
+ * fechamento, e a tarefa automática fecha de novo, no minuto seguinte, toda
+ * rodada aberta cujo horário já passou.
+ *
+ * O que NÃO é desfeito: os convidados que foram acomodados e cobrados
+ * quando a lista fechou continuam como estão. Reabrir a lista é abrir vaga
+ * para quem ainda não entrou, não cancelar cobrança de quem já entrou.
+ */
+export async function reabrirLista(
+  rodadaId: string,
+  novoFechamento: Date,
+  atorId: string,
+): Promise<Round> {
+  const admin = clienteAdmin();
+
+  const { data: atual } = await admin.from("rounds").select("*").eq("id", rodadaId).maybeSingle();
+  if (!atual) throw erroDeRegra("nao_encontrado", "Racha não encontrado.");
+
+  const veredito = avaliarReabertura(
+    { situacao: atual.status, comecaEm: new Date(atual.starts_at) },
+    novoFechamento,
+    new Date(),
+  );
+
+  if (veredito.problemas.length > 0) {
+    throw erroDeRegra("regra_violada", veredito.problemas.join(" "));
+  }
+
+  const { data, error } = await admin
+    .from("rounds")
+    .update({
+      status: "open",
+      closed_at: null,
+      list_closes_at: novoFechamento.toISOString(),
+    })
+    .eq("id", rodadaId)
+    .select("*")
+    .single();
+
+  if (error || !data) {
+    throw erroDeRegra("servico_indisponivel", "Não foi possível reabrir a lista.");
+  }
+
+  await registrarAuditoria({
+    atorId,
+    acao: "rodada.reaberta",
+    entidade: "rounds",
+    entidadeId: rodadaId,
+    antes: { situacao: atual.status, lista_fecha_em: atual.list_closes_at },
+    depois: { situacao: data.status, lista_fecha_em: data.list_closes_at },
+  });
+
+  // Reabrir sem avisar não serve para nada: quem ficou de fora precisa saber
+  // que voltou a caber gente.
+  const { data: jogadores } = await admin.from("profiles").select("id").eq("status", "active");
+
+  await notificar({
+    destinatarios: (jogadores ?? []).map((j) => j.id),
+    tipo: "rodada.reaberta",
+    titulo: "🔓 A lista reabriu!",
+    corpo: `${nomeDaRodada(data)}: a lista voltou a abrir até ${formatarDataHora(data.list_closes_at)}.`,
+    url: `/racha/${data.id}`,
+    dados: { rodadaId: data.id },
+  });
+
+  return data;
 }
 
 export function iniciarRodada(rodadaId: string, atorId: string) {

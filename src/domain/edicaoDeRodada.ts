@@ -122,3 +122,75 @@ export function avaliarEdicao(
     avisarOGrupo: problemas.length === 0 && (mudouHorario || mudouLocal) && atual.situacao !== "draft",
   };
 }
+
+// ------------------------------------------------------------
+// Reabrir a lista
+// ------------------------------------------------------------
+
+export interface VereditoDaReabertura {
+  problemas: string[];
+}
+
+/**
+ * A lista fechada pode voltar a abrir?
+ *
+ * A pegadinha aqui não é o estado, é o RELÓGIO. Duas coisas olham para
+ * `list_closes_at` o tempo todo:
+ *
+ *   • a regra de entrada recusa quem chega depois do horário de fechamento,
+ *     mesmo com a rodada aberta;
+ *   • a tarefa automática fecha, a cada minuto, toda rodada aberta cujo
+ *     horário de fechamento já passou.
+ *
+ * Ou seja: virar a situação para "aberta" sem mexer no horário não reabre
+ * nada — ninguém consegue entrar, e em menos de um minuto o relógio fecha de
+ * novo. Por isso reabrir exige um horário novo, no futuro.
+ */
+export function avaliarReabertura(
+  rodada: { situacao: RoundStatus; comecaEm: Date },
+  novoFechamento: Date,
+  agora: Date,
+): VereditoDaReabertura {
+  const problemas: string[] = [];
+
+  switch (rodada.situacao) {
+    case "closed":
+      break;
+    case "open":
+      problemas.push("A lista deste racha já está aberta.");
+      break;
+    case "draft":
+      problemas.push("Este racha ainda não foi aberto. Use \"Abrir lista\".");
+      break;
+    case "in_progress":
+      problemas.push("Este racha já começou. A lista não volta a abrir com a bola rolando.");
+      break;
+    case "finished":
+      problemas.push("Este racha já foi encerrado.");
+      break;
+    case "cancelled":
+      problemas.push("Este racha foi cancelado.");
+      break;
+  }
+
+  if (problemas.length > 0) return { problemas };
+
+  if (rodada.comecaEm.getTime() <= agora.getTime()) {
+    problemas.push(
+      "O horário do racha já passou. Mude a data em \"Editar racha\" antes de reabrir a lista.",
+    );
+    return { problemas };
+  }
+
+  if (novoFechamento.getTime() <= agora.getTime()) {
+    problemas.push(
+      "O novo horário de fechamento precisa ser no futuro — senão a lista fecha sozinha de novo em seguida.",
+    );
+  }
+
+  if (novoFechamento.getTime() > rodada.comecaEm.getTime()) {
+    problemas.push("A lista precisa fechar antes do início do racha.");
+  }
+
+  return { problemas };
+}

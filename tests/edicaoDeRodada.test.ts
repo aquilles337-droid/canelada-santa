@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { avaliarEdicao, type EdicaoDaRodada, type RodadaParaEditar } from "@/domain/edicaoDeRodada";
+import {
+  avaliarEdicao,
+  avaliarReabertura,
+  type EdicaoDaRodada,
+  type RodadaParaEditar,
+} from "@/domain/edicaoDeRodada";
 
 const AGORA = new Date("2026-03-10T12:00:00Z");
 const COMECO = new Date("2026-03-14T23:00:00Z");
@@ -155,5 +160,68 @@ describe("edição de rodada", () => {
     const veredito = avaliarEdicao(rodada(), edicao({ capacidade: 30, quantidadeDeTimes: 1 }), AGORA);
     expect(veredito.problemas).toHaveLength(1);
     expect(veredito.chamarFila).toBe(false);
+  });
+});
+
+describe("reabrir a lista", () => {
+  const rodada = (situacao: RodadaParaEditar["situacao"], comecaEm = COMECO) => ({
+    situacao,
+    comecaEm,
+  });
+
+  // O antes do racha: COMECO é 14/03 às 23h, AGORA é 10/03 ao meio-dia.
+  const novoFechamento = new Date("2026-03-14T20:00:00Z");
+
+  it("uma lista fechada volta a abrir", () => {
+    expect(avaliarReabertura(rodada("closed"), novoFechamento, AGORA).problemas).toEqual([]);
+  });
+
+  it("lista já aberta não reabre", () => {
+    const { problemas } = avaliarReabertura(rodada("open"), novoFechamento, AGORA);
+    expect(problemas[0]).toContain("já está aberta");
+  });
+
+  it("rascunho manda usar Abrir lista", () => {
+    const { problemas } = avaliarReabertura(rodada("draft"), novoFechamento, AGORA);
+    expect(problemas[0]).toContain("Abrir lista");
+  });
+
+  it("racha em andamento não reabre a lista", () => {
+    const { problemas } = avaliarReabertura(rodada("in_progress"), novoFechamento, AGORA);
+    expect(problemas[0]).toContain("já começou");
+  });
+
+  it("racha encerrado não reabre", () => {
+    expect(avaliarReabertura(rodada("finished"), novoFechamento, AGORA).problemas).toHaveLength(1);
+  });
+
+  it("racha cancelado não reabre", () => {
+    expect(avaliarReabertura(rodada("cancelled"), novoFechamento, AGORA).problemas).toHaveLength(1);
+  });
+
+  // Reabrir com horário no passado não reabriria nada: a regra de entrada
+  // recusa quem chega depois do fechamento, e a tarefa automática fecha a
+  // rodada de novo no minuto seguinte.
+  it("o novo fechamento no passado é recusado, com o motivo", () => {
+    const passado = new Date(AGORA.getTime() - 60_000);
+    const { problemas } = avaliarReabertura(rodada("closed"), passado, AGORA);
+    expect(problemas[0]).toContain("fecha sozinha de novo");
+  });
+
+  it("o novo fechamento não pode ser depois do início do racha", () => {
+    const depois = new Date(COMECO.getTime() + 60_000);
+    const { problemas } = avaliarReabertura(rodada("closed"), depois, AGORA);
+    expect(problemas[0]).toContain("fechar antes");
+  });
+
+  it("fechar exatamente na hora do início é permitido", () => {
+    expect(avaliarReabertura(rodada("closed"), COMECO, AGORA).problemas).toEqual([]);
+  });
+
+  it("racha que já passou manda editar a data primeiro", () => {
+    const jaPassou = new Date(AGORA.getTime() - 3_600_000);
+    const { problemas } = avaliarReabertura(rodada("closed", jaPassou), novoFechamento, AGORA);
+    expect(problemas).toHaveLength(1);
+    expect(problemas[0]).toContain("Editar racha");
   });
 });
