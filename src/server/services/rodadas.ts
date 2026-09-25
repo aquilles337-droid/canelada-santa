@@ -3,6 +3,8 @@ import "server-only";
 import { clienteAdmin } from "@/lib/supabase/admin";
 import { erroDeRegra } from "@/lib/erros";
 import { faixaDe, type ParticipanteDoDominio, type RodadaDoDominio } from "@/domain/tipos";
+import { avaliarEdicao, type EdicaoDaRodada } from "@/domain/edicaoDeRodada";
+import { formatarDataHora } from "@/lib/format";
 import type {
   PrecosDaRodada,
   Profile,
@@ -240,6 +242,157 @@ export async function criarRodada(entrada: NovaRodada, atorId: string): Promise<
   }
 
   return data;
+}
+
+// ------------------------------------------------------------
+// Edicao
+// ------------------------------------------------------------
+
+/**
+ * Altera uma rodada que ja existe.
+ *
+ * O que NAO muda aqui, de proposito: preco e multa. Eles foram copiados para
+ * dentro da rodada na criacao justamente para nao mudarem depois de alguem
+ * ja ter sido cobrado. Quem precisa mexer em valor mexe em Ajustes, e vale
+ * da proxima rodada em diante.
+ */
+/** O que a tela manda: as regras do dominio mais o texto livre. */
+export interface EdicaoCompletaDaRodada extends EdicaoDaRodada {
+  titulo?: string | null;
+  endereco?: string | null;
+  regras?: string | null;
+}
+
+export async function editarRodada(
+  rodadaId: string,
+  entrada: EdicaoCompletaDaRodada,
+  atorId: string,
+): Promise<{ rodada: Round; chamadosDaFila: number }> {
+  const admin = clienteAdmin();
+
+  const { data: atual } = await admin.from("rounds").select("*").eq("id", rodadaId).maybeSingle();
+  if (!atual) throw erroDeRegra("nao_encontrado", "Racha não encontrado.");
+
+  // Confirmados e chamados seguram vaga do mesmo jeito: quem foi chamado
+  // ainda tem prazo para responder, e a vaga e dele ate la.
+  const { count } = await admin
+    .from("round_participants")
+    .select("id", { count: "exact", head: true })
+    .eq("round_id", rodadaId)
+    .in("status", ["confirmed", "invited"]);
+
+  const vagasOcupadas = count ?? 0;
+
+  const veredito = avaliarEdicao(
+    {
+      situacao: atual.status,
+      capacidade: atual.capacity,
+      vagasOcupadas,
+      comecaEm: new Date(atual.starts_at),
+      listaFechaEm: new Date(atual.list_closes_at),
+      local: atual.venue,
+    },
+    entrada,
+    new Date(),
+  );
+
+  if (veredito.problemas.length > 0) {
+    throw erroDeRegra("dados_invalidos", veredito.problemas.join(" "));
+  }
+
+  // Mover o racha move junto a hora em que os avulsos entram, preservando a
+  // distancia com que a rodada foi criada. Sem isso, adiar o racha em um dia
+  // deixaria a janela dos mensalistas ja vencida.
+  const deslocamento = entrada.comecaEm.getTime() - new Date(atual.starts_at).getTime();
+  const liberacaoDeAvulsos = new Date(new Date(atual.waitlist_unlock_at).getTime() + deslocamento);
+
+  const { data, error } = await admin
+    .from("rounds")
+    .update({
+      title: entrada.titulo?.trim() || null,
+      starts_at: entrada.comecaEm.toISOString(),
+      venue: entrada.local.trim(),
+      address: entrada.endereco?.trim() || null,
+      capacity: entrada.capacidade,
+      teams_count: entrada.quantidadeDeTimes,
+      players_per_team: entrada.jogadoresPorTime,
+      match_minutes: entrada.minutosPorPartida,
+      goals_to_win: entrada.golsParaVencer,
+      list_closes_at: entrada.listaFechaEm.toISOString(),
+      waitlist_unlock_at: liberacaoDeAvulsos.toISOString(),
+      rules: entrada.regras?.trim() || null,
+    })
+    .eq("id", rodadaId)
+    .select("*")
+    .single();
+
+  if (error || !data) {
+    throw erroDeRegra("servico_indisponivel", "Não foi possível salvar as alterações do racha.");
+  }
+
+  await registrarAuditoria({
+    atorId,
+    acao: "rodada.alterada",
+    entidade: "rounds",
+    entidadeId: rodadaId,
+    antes: {
+      comeca_em: atual.starts_at,
+      local: atual.venue,
+      vagas: atual.capacity,
+      times: atual.teams_count,
+      minutos: atual.match_minutes,
+      gols: atual.goals_to_win,
+      lista_fecha_em: atual.list_closes_at,
+    },
+    depois: {
+      comeca_em: data.starts_at,
+      local: data.venue,
+      vagas: data.capacity,
+      times: data.teams_count,
+      minutos: data.match_minutes,
+      gols: data.goals_to_win,
+      lista_fecha_em: data.list_closes_at,
+    },
+  });
+
+  // Abriu vaga: quem esta na espera tem de ser chamado agora, nao na proxima
+  // vez que alguem cancelar.
+  let chamadosDaFila = 0;
+  if (veredito.chamarFila) {
+    const { promoverFilaDaRodada } = await import("./presenca");
+    chamadosDaFila = await promoverFilaDaRodada(rodadaId);
+  }
+
+  if (veredito.avisarOGrupo) {
+    await avisarMudancaDaRodada(data, atual);
+  }
+
+  return { rodada: data, chamadosDaFila };
+}
+
+/** Avisa quem tem vaga que o racha mudou de hora ou de lugar. */
+async function avisarMudancaDaRodada(rodada: Round, anterior: Round): Promise<void> {
+  const { data: participantes } = await clienteAdmin()
+    .from("round_participants")
+    .select("profile_id")
+    .eq("round_id", rodada.id)
+    .in("status", ["confirmed", "invited", "waiting"]);
+
+  const mudouHorario = rodada.starts_at !== anterior.starts_at;
+  const mudouLocal = rodada.venue !== anterior.venue;
+
+  const partes: string[] = [];
+  if (mudouHorario) partes.push(`agora é ${formatarDataHora(rodada.starts_at)}`);
+  if (mudouLocal) partes.push(`o local é ${rodada.venue}`);
+
+  await notificar({
+    destinatarios: (participantes ?? []).map((p) => p.profile_id),
+    tipo: "rodada.alterada",
+    titulo: "📣 Mudou o racha",
+    corpo: `${nomeDaRodada(rodada)}: ${partes.join(" e ")}.`,
+    url: `/racha/${rodada.id}`,
+    dados: { rodadaId: rodada.id },
+  });
 }
 
 async function proximoNumeroDaRodada(temporadaId: string): Promise<number> {

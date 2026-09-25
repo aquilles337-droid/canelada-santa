@@ -563,6 +563,14 @@ contagem. Ninguém vota em si mesmo.
 **Admin → Dinheiro**, ache a pessoa e clique em **Pagou**. A baixa fica registrada com o nome
 de quem deu.
 
+**Criei o racha com o número errado de vagas. Dá para mudar?**
+Dá. Abra o racha em **Admin → Rachas**, toque em **Editar racha** e mude o que precisar: vagas,
+times, data, horário, local, formato do jogo e regras. Aumentar as vagas chama a fila na hora.
+Diminuir só vai até o número de quem já tem vaga — abaixo disso o sistema recusa, porque
+escolher quem sai é decisão sua, não dele: tire a pessoa da lista primeiro. Mudar a data ou o
+local avisa todo mundo que está na lista. O valor do avulso e as multas daquele racha não mudam
+por lá: ficaram travados na criação para não reescrever o que já foi cobrado.
+
 **Marquei uma falta errada.**
 Marque de novo. A multa anterior é cancelada antes de qualquer nova ser criada.
 

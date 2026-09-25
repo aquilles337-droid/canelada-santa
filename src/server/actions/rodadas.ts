@@ -7,6 +7,7 @@ import {
   abrirRodada,
   cancelarRodada,
   criarRodada,
+  editarRodada,
   fecharLista,
   finalizarRodada,
   iniciarRodada,
@@ -72,6 +73,60 @@ export async function criarRodadaAction(
     revalidatePath("/admin/rodadas");
     revalidatePath("/inicio");
     return sucesso(rodada);
+  } catch (erro) {
+    return comoResultado(erro);
+  }
+}
+
+const esquemaDeEdicao = esquema.extend({
+  id: z.string().uuid("Racha inválido"),
+});
+
+/**
+ * Altera um racha que ja existe.
+ *
+ * Devolve quantas pessoas foram chamadas da fila, porque aumentar as vagas
+ * e a edicao que mexe na vida dos outros: a tela precisa dizer isso em vez
+ * de so avisar "salvo".
+ */
+export async function editarRodadaAction(
+  _anterior: unknown,
+  formulario: FormData,
+): Promise<Resultado<{ rodada: Round; chamadosDaFila: number }>> {
+  try {
+    const admin = await exigirAdmin();
+
+    const bruto = esquemaDeEdicao.safeParse(Object.fromEntries(formulario));
+    if (!bruto.success) {
+      return falha("dados_invalidos", bruto.error.issues[0]?.message ?? "Confira os dados do racha.");
+    }
+
+    const dados = bruto.data;
+    const porTime = dados.jogadoresPorTime?.trim() ? Number(dados.jogadoresPorTime) : null;
+
+    const resultado = await editarRodada(
+      dados.id,
+      {
+        titulo: dados.titulo ?? null,
+        comecaEm: paraUTC(dados.data, dados.hora),
+        local: dados.local,
+        endereco: dados.endereco ?? null,
+        capacidade: dados.vagas,
+        quantidadeDeTimes: dados.times,
+        jogadoresPorTime: porTime !== null && Number.isFinite(porTime) ? porTime : null,
+        minutosPorPartida: dados.minutos,
+        golsParaVencer: dados.gols,
+        listaFechaEm: paraUTC(dados.fechamentoData, dados.fechamentoHora),
+        regras: dados.regras ?? null,
+      },
+      admin.id,
+    );
+
+    revalidatePath("/admin/rodadas");
+    revalidatePath(`/admin/rodadas/${dados.id}`);
+    revalidatePath(`/racha/${dados.id}`);
+    revalidatePath("/inicio");
+    return sucesso(resultado);
   } catch (erro) {
     return comoResultado(erro);
   }

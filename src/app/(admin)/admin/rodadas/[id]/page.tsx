@@ -63,6 +63,11 @@ export default async function PaginaAdminRodada({ params }: { params: Promise<{ 
       </CartaoDaRodada>
 
       <div className="grid grid-cols-2 gap-2">
+        <Link href={`/admin/rodadas/${rodada.id}/editar`}>
+          <Botao variante="escuro" larguraTotal>
+            Editar racha
+          </Botao>
+        </Link>
         <Link href={`/admin/rodadas/${rodada.id}/jogo`}>
           <Botao variante="escuro" larguraTotal>
             Modo jogo

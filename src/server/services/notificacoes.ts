@@ -17,6 +17,7 @@ export type TipoDeNotificacao =
   | "rodada.lembrete"
   | "rodada.comecando"
   | "rodada.cancelada"
+  | "rodada.alterada"
   | "vaga.liberada"
   | "vaga.perdida"
   | "vaga.prazo_acabando"
