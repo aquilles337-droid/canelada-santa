@@ -2,8 +2,9 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { exigirUsuario } from "@/server/auth/sessao";
 import { carregarRodada, nomeDaRodada } from "@/server/services/rodadas";
-import { textoParaWhatsapp, timesDaRodada } from "@/server/services/times";
+import { goleirosDaRodada, textoParaWhatsapp, timesDaRodada } from "@/server/services/times";
 import { CartaoDeTime } from "@/components/times/CartaoDeTime";
+import { CartaoDosGoleiros } from "@/components/times/CartaoDosGoleiros";
 import { Botao } from "@/components/ui/Botao";
 import { EstadoVazio } from "@/components/ui/Estados";
 import { ErroDeRegra } from "@/lib/erros";
@@ -22,8 +23,8 @@ export default async function PaginaTimesDaRodada({ params }: { params: Promise<
     throw erro;
   }
 
-  const times = await timesDaRodada(id);
-  const texto = textoParaWhatsapp(nomeDaRodada(rodada), times);
+  const [times, goleiros] = await Promise.all([timesDaRodada(id), goleirosDaRodada(id)]);
+  const texto = textoParaWhatsapp(nomeDaRodada(rodada), times, goleiros);
 
   return (
     <div className="flex flex-col gap-4 animate-subir">
@@ -42,6 +43,9 @@ export default async function PaginaTimesDaRodada({ params }: { params: Promise<
         />
       ) : (
         <>
+          {/* O goleiro não está em time nenhum: ele é do gol. */}
+          <CartaoDosGoleiros goleiros={goleiros} />
+
           <div className="flex flex-col gap-3">
             {times.map((time) => (
               <CartaoDeTime key={time.id} time={time} />

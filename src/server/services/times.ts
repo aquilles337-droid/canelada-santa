@@ -5,7 +5,6 @@ import { erroDeRegra } from "@/lib/erros";
 import {
   gerarTimesEquilibrados,
   montarHistoricoDeDuplas,
-  type DestinoDoGoleiroExtra,
   type JogadorParaSorteio,
   type ResultadoDoSorteio,
 } from "@/domain/times";
@@ -37,6 +36,22 @@ export const CORES_DOS_TIMES = [
 
 export interface TimeComIntegrantes extends Team {
   integrantes: (TeamMember & { nome: string; ehGoleiro: boolean; ehConvidado: boolean })[];
+}
+
+/**
+ * Um goleiro da rodada.
+ *
+ * Ele não aparece em time nenhum de propósito: o goleiro é do GOL. A linha
+ * gira na frente dele com o "quem ganha fica", e quem decide em qual gol ele
+ * entra a cada partida é o revezamento (src/domain/goleiros.ts).
+ */
+export interface GoleiroDaRodada {
+  /** Id da participação: é por ele que a partida registra quem estava no gol. */
+  participacaoId: string;
+  profileId: string;
+  nome: string;
+  /** Ordem de entrada no gol, do mais bem avaliado ao menos. */
+  idx: number;
 }
 
 /**
@@ -100,7 +115,6 @@ async function historicoDeDuplas(rodadaAtualId: string, janela: number) {
 export interface OpcoesDeSorteio {
   /** Semente própria, para "gerar novamente" dar outro arranjo. */
   semente?: number;
-  goleiroExtra?: DestinoDoGoleiroExtra;
 }
 
 /** Monta a lista de quem entra no sorteio e roda o algoritmo. */
@@ -169,10 +183,16 @@ export async function sortearTimes(
       configuracoes.team_weights.repetitionWindow ?? 4,
     ),
     semente: opcoes.semente ?? sementeDeTexto(`${rodadaId}:${Date.now()}`),
-    goleiroExtra: opcoes.goleiroExtra ?? "linha",
   });
 
   return { ...resultado, jogadoresPorId };
+}
+
+/** O sorteio gravado: os times de linha e os goleiros, que não têm time. */
+export interface EscalacaoDaRodada {
+  times: TimeComIntegrantes[];
+  goleiros: GoleiroDaRodada[];
+  avisos: string[];
 }
 
 /** Sorteia e grava. Gerar de novo substitui os times anteriores da rodada. */
@@ -180,13 +200,14 @@ export async function gerarEGravarTimes(
   rodadaId: string,
   atorId: string,
   opcoes: OpcoesDeSorteio = {},
-): Promise<TimeComIntegrantes[]> {
+): Promise<EscalacaoDaRodada> {
   const { rodada } = await carregarRodada(rodadaId);
   const resultado = await sortearTimes(rodadaId, opcoes);
   const admin = clienteAdmin();
 
   // Times antigos saem junto com seus integrantes (cascata no banco).
   await admin.from("teams").delete().eq("round_id", rodadaId);
+  await admin.from("round_goalkeepers").delete().eq("round_id", rodadaId);
 
   const gravados: TimeComIntegrantes[] = [];
 
@@ -209,15 +230,15 @@ export async function gerarEGravarTimes(
       throw erroDeRegra("servico_indisponivel", "Não foi possível gravar os times.");
     }
 
-    const integrantes = time.goleiro ? [time.goleiro, ...time.linha] : time.linha;
-
-    const linhas = integrantes.map((jogador) => {
+    // Só a linha vira integrante de time. O goleiro não entra aqui: ele é
+    // do gol, e fica em round_goalkeepers.
+    const linhas = time.linha.map((jogador) => {
       const referencia = resultado.jogadoresPorId.get(jogador.id);
       return {
         team_id: timeGravado.id,
         participant_id: referencia?.participacaoId ?? null,
         guest_id: referencia?.convidadoId ?? null,
-        is_goalkeeper: time.goleiro?.id === jogador.id,
+        is_goalkeeper: false,
         rating_snapshot: Math.round(jogador.nota * 10) / 10,
       };
     });
@@ -228,19 +249,47 @@ export async function gerarEGravarTimes(
 
     gravados.push({
       ...timeGravado,
-      integrantes: integrantes.map((jogador, i) => ({
+      integrantes: time.linha.map((jogador, i) => ({
         id: `${timeGravado.id}-${i}`,
         team_id: timeGravado.id,
         participant_id: resultado.jogadoresPorId.get(jogador.id)?.participacaoId ?? null,
         guest_id: resultado.jogadoresPorId.get(jogador.id)?.convidadoId ?? null,
-        is_goalkeeper: time.goleiro?.id === jogador.id,
+        is_goalkeeper: false,
         rating_snapshot: jogador.nota,
         created_at: new Date().toISOString(),
         nome: jogador.nome,
-        ehGoleiro: time.goleiro?.id === jogador.id,
+        ehGoleiro: false,
         ehConvidado: jogador.ehConvidado,
       })),
     });
+  }
+
+  // Os goleiros da rodada, na ordem em que entram no gol.
+  const goleiros: GoleiroDaRodada[] = [];
+
+  for (const [posicao, goleiro] of resultado.goleiros.entries()) {
+    const participacaoId = resultado.jogadoresPorId.get(goleiro.id)?.participacaoId;
+    // Convidado não é marcado como goleiro no cadastro, então isto não
+    // deveria acontecer; se acontecer, o jogador simplesmente não é goleiro
+    // da rodada em vez de derrubar o sorteio inteiro.
+    if (!participacaoId) continue;
+
+    goleiros.push({
+      participacaoId,
+      profileId: goleiro.id,
+      nome: goleiro.nome,
+      idx: posicao + 1,
+    });
+  }
+
+  if (goleiros.length > 0) {
+    await admin.from("round_goalkeepers").insert(
+      goleiros.map((g) => ({
+        round_id: rodadaId,
+        participant_id: g.participacaoId,
+        idx: g.idx,
+      })),
+    );
   }
 
   await registrarAuditoria({
@@ -251,6 +300,7 @@ export async function gerarEGravarTimes(
     depois: {
       times: resultado.times.map((t) => ({ indice: t.indice, soma: t.somaDeNotas })),
       custo: Math.round(resultado.custo * 1000) / 1000,
+      goleiros: goleiros.map((g) => g.nome),
       avisos: resultado.avisos,
     },
   });
@@ -269,7 +319,41 @@ export async function gerarEGravarTimes(
     url: `/racha/${rodadaId}/times`,
   });
 
-  return gravados;
+  return { times: gravados, goleiros, avisos: resultado.avisos };
+}
+
+/** Os goleiros já gravados da rodada, na ordem em que entram no gol. */
+export async function goleirosDaRodada(rodadaId: string): Promise<GoleiroDaRodada[]> {
+  const { data } = await clienteAdmin()
+    .from("round_goalkeepers")
+    .select(
+      `idx, participant_id,
+       participacao:round_participants(
+         id, profile_id,
+         perfil:profiles!round_participants_profile_id_fkey(full_name, nickname)
+       )`,
+    )
+    .eq("round_id", rodadaId)
+    .order("idx", { ascending: true });
+
+  type LinhaBruta = {
+    idx: number;
+    participant_id: string;
+    participacao: {
+      id: string;
+      profile_id: string;
+      perfil: { full_name: string; nickname: string | null };
+    } | null;
+  };
+
+  return ((data ?? []) as unknown as LinhaBruta[])
+    .filter((linha) => linha.participacao !== null)
+    .map((linha) => ({
+      participacaoId: linha.participant_id,
+      profileId: linha.participacao!.profile_id,
+      nome: linha.participacao!.perfil.nickname?.trim() || linha.participacao!.perfil.full_name,
+      idx: linha.idx,
+    }));
 }
 
 /** Times já gravados da rodada, com os nomes resolvidos. */
@@ -319,8 +403,20 @@ export async function timesDaRodada(rodadaId: string): Promise<TimeComIntegrante
 export function textoParaWhatsapp(
   nomeDoRacha: string,
   times: TimeComIntegrantes[],
+  goleiros: GoleiroDaRodada[] = [],
 ): string {
   const linhas = ["⚽ *CANELADA SANTA*", `🔥 *TIMES — ${nomeDoRacha.toUpperCase()}*`, ""];
+
+  // O goleiro vem primeiro e separado: ele não é de time nenhum, fica no gol
+  // enquanto a linha gira.
+  if (goleiros.length > 0) {
+    linhas.push(goleiros.length > 2 ? "🧤 *GOLEIROS* (revezam)" : "🧤 *NO GOL*");
+    goleiros.forEach((goleiro, indice) => {
+      const ondeFica = goleiros.length > 2 ? "" : ` — gol ${indice + 1}`;
+      linhas.push(`🧤 ${goleiro.nome}${ondeFica}`);
+    });
+    linhas.push("");
+  }
 
   times.forEach((time, indice) => {
     const estilo = CORES_DOS_TIMES[indice % CORES_DOS_TIMES.length]!;

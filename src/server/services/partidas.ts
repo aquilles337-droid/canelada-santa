@@ -8,10 +8,11 @@ import {
   type PlacarDaPartida,
   type RegistroDoSorteio,
 } from "@/domain/partida";
+import { escalarGoleiros, type GoleirosDaPartida } from "@/domain/goleiros";
 import type { Match, MatchEvent, Team } from "@/lib/supabase/tipos";
 import { registrarAuditoria } from "./auditoria";
 import { carregarRodada } from "./rodadas";
-import { timesDaRodada, type TimeComIntegrantes } from "./times";
+import { goleirosDaRodada, timesDaRodada, type GoleiroDaRodada, type TimeComIntegrantes } from "./times";
 
 /**
  * Modo jogo.
@@ -26,6 +27,8 @@ import { timesDaRodada, type TimeComIntegrantes } from "./times";
 
 export interface EstadoDoJogo {
   times: TimeComIntegrantes[];
+  /** Os goleiros da rodada. Não pertencem a time: são do gol. */
+  goleiros: GoleiroDaRodada[];
   partidaAtual: Match | null;
   partidas: Match[];
   eventos: MatchEvent[];
@@ -60,7 +63,11 @@ function montarFila(times: Team[], partidas: Match[], partidaAtual: Match | null
 
 export async function estadoDoJogo(rodadaId: string): Promise<EstadoDoJogo> {
   const admin = clienteAdmin();
-  const [{ rodada }, times] = await Promise.all([carregarRodada(rodadaId), timesDaRodada(rodadaId)]);
+  const [{ rodada }, times, goleiros] = await Promise.all([
+    carregarRodada(rodadaId),
+    timesDaRodada(rodadaId),
+    goleirosDaRodada(rodadaId),
+  ]);
 
   const { data: partidas } = await admin
     .from("matches")
@@ -79,6 +86,7 @@ export async function estadoDoJogo(rodadaId: string): Promise<EstadoDoJogo> {
 
   return {
     times,
+    goleiros,
     partidaAtual,
     partidas: todas,
     eventos: eventos ?? [],
@@ -109,6 +117,41 @@ export async function abrirPrimeiraPartida(rodadaId: string, atorId: string): Pr
   return criarPartida(rodadaId, 1, times[0]!.id, times[1]!.id, atorId);
 }
 
+/**
+ * Quem vai a cada gol na próxima partida.
+ *
+ * O goleiro é do GOL: a linha gira na frente dele. Com dois goleiros nada
+ * muda a noite toda; com três ou mais eles se revezam, e quem já estava num
+ * gol e continua escalado não atravessa o campo.
+ *
+ * Fica gravado na partida porque é assim que a vitória do goleiro é contada
+ * depois: pelo lado que ele defendeu, não pelo time a que pertenceria.
+ */
+async function escalarOsGols(rodadaId: string): Promise<GoleirosDaPartida> {
+  const admin = clienteAdmin();
+
+  const [goleiros, { data: partidas }] = await Promise.all([
+    goleirosDaRodada(rodadaId),
+    admin
+      .from("matches")
+      .select("goalkeeper_a_id, goalkeeper_b_id")
+      .eq("round_id", rodadaId)
+      .order("seq", { ascending: true }),
+  ]);
+
+  const anteriores: GoleirosDaPartida[] = (partidas ?? []).map((p) => ({
+    ladoA: p.goalkeeper_a_id,
+    ladoB: p.goalkeeper_b_id,
+  }));
+
+  const escalacao = escalarGoleiros(
+    goleiros.map((g) => g.participacaoId),
+    anteriores,
+  );
+
+  return { ladoA: escalacao.ladoA, ladoB: escalacao.ladoB };
+}
+
 async function criarPartida(
   rodadaId: string,
   seq: number,
@@ -116,9 +159,19 @@ async function criarPartida(
   timeB: string,
   atorId: string,
 ): Promise<Match> {
+  const gols = await escalarOsGols(rodadaId);
+
   const { data, error } = await clienteAdmin()
     .from("matches")
-    .insert({ round_id: rodadaId, seq, team_a_id: timeA, team_b_id: timeB, status: "scheduled" })
+    .insert({
+      round_id: rodadaId,
+      seq,
+      team_a_id: timeA,
+      team_b_id: timeB,
+      goalkeeper_a_id: gols.ladoA,
+      goalkeeper_b_id: gols.ladoB,
+      status: "scheduled",
+    })
     .select("*")
     .single();
 

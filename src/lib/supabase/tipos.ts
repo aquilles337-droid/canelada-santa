@@ -230,6 +230,16 @@ export type TeamMember = {
   created_at: string;
 }
 
+/** Um goleiro da rodada. Não pertence a time nenhum: ele é do gol. */
+export type RoundGoalkeeper = {
+  id: string;
+  round_id: string;
+  participant_id: string;
+  /** Ordem de entrada no gol, do mais bem avaliado ao menos. */
+  idx: number;
+  created_at: string;
+}
+
 /** Registro do sorteio de desempate (regra do time que ganha fica). */
 export type RegistroDeSorteio = {
   motivo: "empate_uma_equipe_fora";
@@ -245,6 +255,15 @@ export type Match = {
   seq: number;
   team_a_id: string;
   team_b_id: string;
+  /**
+   * Quem estava em cada gol nesta partida. O goleiro é do gol, não do time:
+   * a linha gira com o "quem ganha fica" e ele continua ali, então a vitória
+   * dele vem daqui, e não do time a que pertenceria.
+   *
+   * Nulo é caso real: racha sem goleiro marcado, ou com um só.
+   */
+  goalkeeper_a_id: string | null;
+  goalkeeper_b_id: string | null;
   score_a: number;
   score_b: number;
   status: MatchStatus;
@@ -517,6 +536,7 @@ export type Database = {
       seasons: Tabela<Season>;
       rounds: Tabela<Round>;
       round_participants: Tabela<RoundParticipant>;
+      round_goalkeepers: Tabela<RoundGoalkeeper>;
       round_guests: Tabela<RoundGuest>;
       teams: Tabela<Team>;
       team_members: Tabela<TeamMember>;

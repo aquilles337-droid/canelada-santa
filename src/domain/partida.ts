@@ -12,6 +12,11 @@
  *     sorteio fica registrado no histórico da partida;
  *   • nenhuma esperando (racha de dois times) → não há quem trocar, então as
  *     mesmas equipes seguem para a próxima partida.
+ *
+ * O LADO DO CAMPO É PRESERVADO. Quem fica continua no mesmo lado (A ou B), e
+ * quem entra assume o lado de quem saiu. Isso não é detalhe de tela: o
+ * goleiro é do gol, não do time (src/domain/goleiros.ts), então trocar o
+ * time de lado trocaria o goleiro dele no meio do racha.
  */
 
 import { geradorAleatorio } from "@/lib/utils";
@@ -76,12 +81,15 @@ export function quemFicaEQuemSai(
     const vencedor = resultado === "team_a" ? placar.timeA : placar.timeB;
     const perdedor = resultado === "team_a" ? placar.timeB : placar.timeA;
 
+    const vencedorEstavaNoLadoA = resultado === "team_a";
+
     const proximo = fila.shift();
     if (!proximo) {
-      // Só há duas equipes no racha: continuam jogando entre si.
+      // Só há duas equipes no racha: continuam jogando entre si, cada uma no
+      // seu lado.
       return {
-        timeA: vencedor,
-        timeB: perdedor,
+        timeA: placar.timeA,
+        timeB: placar.timeB,
         fila: [],
         sairam: [],
         sorteio: null,
@@ -90,8 +98,8 @@ export function quemFicaEQuemSai(
     }
 
     return {
-      timeA: vencedor,
-      timeB: proximo,
+      timeA: vencedorEstavaNoLadoA ? vencedor : proximo,
+      timeB: vencedorEstavaNoLadoA ? proximo : vencedor,
       fila: [...fila, perdedor],
       sairam: [perdedor],
       sorteio: null,
@@ -124,8 +132,9 @@ export function quemFicaEQuemSai(
     const queFica = saiOTimeA ? placar.timeB : placar.timeA;
 
     return {
-      timeA: queFica,
-      timeB: entra,
+      // Quem fica não atravessa o campo: quem entra ocupa o lado que vagou.
+      timeA: saiOTimeA ? entra : queFica,
+      timeB: saiOTimeA ? queFica : entra,
       fila: [queSai],
       sairam: [queSai],
       sorteio: {

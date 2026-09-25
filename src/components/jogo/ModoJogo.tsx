@@ -35,6 +35,10 @@ export function ModoJogo({ rodadaId, estado }: { rodadaId: string; estado: Estad
   const timeA = estado.times.find((t) => t.id === partida?.team_a_id);
   const timeB = estado.times.find((t) => t.id === partida?.team_b_id);
 
+  // O goleiro é do gol, não do time: quem está em cada lado vem da partida.
+  const nomeDoGoleiro = (participacaoId: string | null | undefined) =>
+    estado.goleiros.find((g) => g.participacaoId === participacaoId)?.nome ?? null;
+
   if (!partida || !timeA || !timeB) {
     return (
       <EstadoVazio
@@ -96,6 +100,8 @@ export function ModoJogo({ rodadaId, estado }: { rodadaId: string; estado: Estad
           timeB={{ name: timeB.name, color: timeB.color }}
           golsA={partida.score_a}
           golsB={partida.score_b}
+          goleiroA={nomeDoGoleiro(partida.goalkeeper_a_id)}
+          goleiroB={nomeDoGoleiro(partida.goalkeeper_b_id)}
         />
 
         {!rodando ? (

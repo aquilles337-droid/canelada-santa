@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { exigirAdmin } from "@/server/auth/sessao";
 import { carregarRodada, nomeDaRodada } from "@/server/services/rodadas";
-import { textoParaWhatsapp, timesDaRodada } from "@/server/services/times";
+import { goleirosDaRodada, textoParaWhatsapp, timesDaRodada } from "@/server/services/times";
 import { CartaoDaRodada } from "@/components/rodada/CartaoDaRodada";
 import { Cartao, CabecalhoCartao } from "@/components/ui/Cartao";
 import { Avatar } from "@/components/ui/Avatar";
@@ -43,7 +43,7 @@ export default async function PaginaAdminRodada({ params }: { params: Promise<{ 
   }
 
   const { rodada, participantes } = dados;
-  const times = await timesDaRodada(id);
+  const [times, goleiros] = await Promise.all([timesDaRodada(id), goleirosDaRodada(id)]);
   const confirmados = participantes.filter((p) => p.status === "confirmed");
   const chamados = participantes.filter((p) => p.status === "invited");
   const esperando = participantes.filter((p) => p.status === "waiting");
@@ -95,7 +95,8 @@ export default async function PaginaAdminRodada({ params }: { params: Promise<{ 
         <PainelDeTimes
           rodadaId={rodada.id}
           times={times}
-          textoParaCompartilhar={textoParaWhatsapp(nomeDaRodada(rodada), times)}
+          goleiros={goleiros}
+          textoParaCompartilhar={textoParaWhatsapp(nomeDaRodada(rodada), times, goleiros)}
         />
       </Cartao>
 

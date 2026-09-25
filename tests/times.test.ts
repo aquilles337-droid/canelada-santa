@@ -60,7 +60,7 @@ describe("equilíbrio dos times", () => {
     const jogadores = [...elenco(), ...goleiros(4)];
     const resultado = gerarTimesEquilibrados({ jogadores, quantidadeDeTimes: 4, pesos: PESOS, semente: 1 });
 
-    const distribuidos = resultado.times.flatMap((t) => (t.goleiro ? [t.goleiro, ...t.linha] : t.linha));
+    const distribuidos = [...resultado.times.flatMap((t) => t.linha), ...resultado.goleiros];
 
     expect(distribuidos).toHaveLength(20);
     expect(new Set(distribuidos.map((j) => j.id)).size).toBe(20);
@@ -70,8 +70,8 @@ describe("equilíbrio dos times", () => {
     const jogadores = [...elenco(), ...goleiros(4)];
     const resultado = gerarTimesEquilibrados({ jogadores, quantidadeDeTimes: 4, pesos: PESOS, semente: 7 });
 
-    // Cinco jogadores por time somando ~32 pontos. Menos de meio ponto entre
-    // o time mais forte e o mais fraco é um racha parelho de verdade.
+    // Quatro de linha por time: menos de meio ponto entre o mais forte e o
+    // mais fraco é um racha parelho de verdade.
     expect(diferencaEntreTimes(resultado.times)).toBeLessThanOrEqual(0.4);
   });
 
@@ -79,7 +79,7 @@ describe("equilíbrio dos times", () => {
     const jogadores = [...elenco(), ...goleiros(4)];
     const resultado = gerarTimesEquilibrados({ jogadores, quantidadeDeTimes: 4, pesos: PESOS, semente: 3 });
 
-    const tamanhos = resultado.times.map((t) => (t.goleiro ? 1 : 0) + t.linha.length);
+    const tamanhos = resultado.times.map((t) => t.linha.length);
     expect(Math.max(...tamanhos) - Math.min(...tamanhos)).toBeLessThanOrEqual(1);
   });
 
@@ -87,8 +87,9 @@ describe("equilíbrio dos times", () => {
     const jogadores = [...elenco().slice(0, 13), ...goleiros(3)];
     const resultado = gerarTimesEquilibrados({ jogadores, quantidadeDeTimes: 3, pesos: PESOS, semente: 5 });
 
-    const tamanhos = resultado.times.map((t) => (t.goleiro ? 1 : 0) + t.linha.length);
-    expect(tamanhos.reduce((s, n) => s + n, 0)).toBe(16);
+    const tamanhos = resultado.times.map((t) => t.linha.length);
+    expect(tamanhos.reduce((s, n) => s + n, 0)).toBe(13);
+    expect(resultado.goleiros).toHaveLength(3);
     expect(Math.max(...tamanhos) - Math.min(...tamanhos)).toBeLessThanOrEqual(1);
   });
 
@@ -106,58 +107,73 @@ describe("equilíbrio dos times", () => {
 });
 
 describe("goleiros", () => {
-  it("dá um goleiro para cada time", () => {
-    const jogadores = [...elenco(), ...goleiros(4)];
-    const resultado = gerarTimesEquilibrados({ jogadores, quantidadeDeTimes: 4, pesos: PESOS, semente: 2 });
-
-    expect(resultado.times.every((t) => t.goleiro !== null)).toBe(true);
-    expect(new Set(resultado.times.map((t) => t.goleiro?.id)).size).toBe(4);
-  });
-
-  it("nunca sorteia goleiro como jogador de linha", () => {
+  // O goleiro é do GOL, não do time: a linha gira na frente dele com o
+  // "quem ganha fica" e ele continua ali. Por isso ele não entra em time
+  // nenhum — quem decide em qual gol ele joga a cada partida é o
+  // revezamento, em src/domain/goleiros.ts.
+  it("goleiro nunca entra em time de linha", () => {
     const jogadores = [...elenco(), ...goleiros(4)];
     const resultado = gerarTimesEquilibrados({ jogadores, quantidadeDeTimes: 4, pesos: PESOS, semente: 4 });
 
     for (const time of resultado.times) {
       expect(time.linha.some((j) => j.ehGoleiro)).toBe(false);
     }
+    expect(resultado.goleiros).toHaveLength(4);
+    expect(resultado.goleiros.every((g) => g.ehGoleiro)).toBe(true);
   });
 
-  it("avisa quando falta goleiro", () => {
-    const jogadores = [...elenco(), ...goleiros(2)];
+  // O caso que motivou tudo isto: 18 confirmados, 2 goleiros, 4 times.
+  // Antes saía 5 + 5 + 4 + 4, porque o goleiro contava dentro do time.
+  it("18 jogadores com 2 goleiros viram 4 times de 4", () => {
+    const jogadores = [...elenco().slice(0, 16), ...goleiros(2)];
+    const resultado = gerarTimesEquilibrados({ jogadores, quantidadeDeTimes: 4, pesos: PESOS, semente: 9 });
+
+    expect(resultado.times.map((t) => t.linha.length)).toEqual([4, 4, 4, 4]);
+    expect(resultado.goleiros).toHaveLength(2);
+  });
+
+  it("os goleiros vêm do mais bem avaliado para o menos", () => {
+    const jogadores = [...elenco(), ...goleiros(3)];
+    const resultado = gerarTimesEquilibrados({ jogadores, quantidadeDeTimes: 4, pesos: PESOS, semente: 2 });
+
+    const notas = resultado.goleiros.map((g) => g.nota);
+    expect([...notas].sort((a, b) => b - a)).toEqual(notas);
+  });
+
+  it("a força do time é só a linha: o goleiro não pesa para nenhum lado", () => {
+    const jogadores = [...elenco().slice(0, 16), ...goleiros(2)];
+    const resultado = gerarTimesEquilibrados({ jogadores, quantidadeDeTimes: 4, pesos: PESOS, semente: 13 });
+
+    for (const time of resultado.times) {
+      const somaDaLinha = time.linha.reduce((s, j) => s + j.nota, 0);
+      expect(time.somaDeNotas).toBeCloseTo(somaDaLinha, 5);
+    }
+  });
+
+  it("avisa quando não tem goleiro nenhum", () => {
+    const resultado = gerarTimesEquilibrados({
+      jogadores: elenco(),
+      quantidadeDeTimes: 4,
+      pesos: PESOS,
+      semente: 6,
+    });
+
+    expect(resultado.goleiros).toHaveLength(0);
+    expect(resultado.avisos.join(" ")).toContain("Nenhum goleiro");
+  });
+
+  it("avisa quando só tem um goleiro", () => {
+    const jogadores = [...elenco(), ...goleiros(1)];
     const resultado = gerarTimesEquilibrados({ jogadores, quantidadeDeTimes: 4, pesos: PESOS, semente: 6 });
 
-    expect(resultado.times.filter((t) => t.goleiro).length).toBe(2);
-    expect(resultado.avisos.join(" ")).toContain("sem goleiro");
+    expect(resultado.avisos.join(" ")).toContain("sem goleiro fixo");
   });
 
-  it("goleiro que sobra vira linha, quando o administrador escolhe assim", () => {
-    const jogadores = [...elenco(), ...goleiros(6)];
-    const resultado = gerarTimesEquilibrados({
-      jogadores,
-      quantidadeDeTimes: 4,
-      pesos: PESOS,
-      semente: 8,
-      goleiroExtra: "linha",
-    });
+  it("com três ou mais, avisa que eles revezam", () => {
+    const jogadores = [...elenco(), ...goleiros(3)];
+    const resultado = gerarTimesEquilibrados({ jogadores, quantidadeDeTimes: 4, pesos: PESOS, semente: 6 });
 
-    const naLinha = resultado.times.flatMap((t) => t.linha);
-    expect(naLinha.filter((j) => j.ehGoleiro)).toHaveLength(2);
-    expect(resultado.foraDoSorteio).toHaveLength(0);
-  });
-
-  it("goleiro que sobra fica de fora, quando o administrador escolhe assim", () => {
-    const jogadores = [...elenco(), ...goleiros(6)];
-    const resultado = gerarTimesEquilibrados({
-      jogadores,
-      quantidadeDeTimes: 4,
-      pesos: PESOS,
-      semente: 8,
-      goleiroExtra: "fora",
-    });
-
-    expect(resultado.foraDoSorteio).toHaveLength(2);
-    expect(resultado.foraDoSorteio.every((j) => j.ehGoleiro)).toBe(true);
+    expect(resultado.avisos.join(" ")).toContain("revezando");
   });
 });
 

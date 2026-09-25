@@ -74,6 +74,9 @@ run "$PSQL -d $DB -f '$ROOT/supabase/test/50_mensalidade_assertions.sql'"
 echo "→ rodando asserções das estatísticas"
 run "$PSQL -d $DB -f '$ROOT/supabase/test/60_estatisticas_assertions.sql'"
 
+echo "→ rodando asserções do goleiro no gol"
+run "$PSQL -d $DB -f '$ROOT/supabase/test/62_goleiros_assertions.sql'"
+
 echo "→ preparando o terreno do reinício de temporada"
 run "$PSQL -d $DB -f '$ROOT/supabase/test/65_antes_do_reinicio.sql'"
 

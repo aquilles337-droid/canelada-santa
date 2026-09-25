@@ -49,9 +49,29 @@ describe("quem ganha fica", () => {
   it("funciona quando quem ganha é o time B", () => {
     const proxima = quemFicaEQuemSai(placar(0, 3), ["T3"], { semente: 1 });
 
-    expect(proxima.timeA).toBe("T2");
-    expect(proxima.timeB).toBe("T3");
+    // T2 ganhou no lado B e continua no lado B; T3 assume o lado que T1 deixou.
+    expect(proxima.timeA).toBe("T3");
+    expect(proxima.timeB).toBe("T2");
     expect(proxima.fila).toEqual(["T1"]);
+  });
+
+  // O lado do campo é o que amarra o goleiro à partida: o goleiro é do gol,
+  // não do time. Se o vencedor pulasse de lado, trocaria de goleiro no meio
+  // do racha sem ninguém ter saído do gol.
+  it("quem ganha continua no mesmo lado do campo", () => {
+    const venceuNoLadoA = quemFicaEQuemSai(placar(2, 0), ["T3"], { semente: 1 });
+    expect(venceuNoLadoA.timeA).toBe("T1");
+
+    const venceuNoLadoB = quemFicaEQuemSai(placar(0, 2), ["T3"], { semente: 1 });
+    expect(venceuNoLadoB.timeB).toBe("T2");
+  });
+
+  it("quem entra assume o lado de quem saiu", () => {
+    const perdeuOLadoB = quemFicaEQuemSai(placar(2, 0), ["T3"], { semente: 1 });
+    expect(perdeuOLadoB.timeB).toBe("T3");
+
+    const perdeuOLadoA = quemFicaEQuemSai(placar(0, 2), ["T3"], { semente: 1 });
+    expect(perdeuOLadoA.timeA).toBe("T3");
   });
 });
 
@@ -73,10 +93,14 @@ describe("empate", () => {
     expect(proxima.sorteio?.timesSorteados).toEqual(["T1", "T2"]);
     expect(["T1", "T2"]).toContain(proxima.sorteio?.timeQueSaiu);
 
-    // Quem saiu é exatamente quem não ficou, e a equipe que esperava entrou.
+    // Quem saiu é exatamente quem não ficou, e a equipe que esperava entrou
+    // no lado que vagou.
     expect(proxima.fila).toEqual([proxima.sorteio?.timeQueSaiu]);
-    expect(proxima.timeB).toBe("T3");
-    expect(proxima.timeA).not.toBe(proxima.sorteio?.timeQueSaiu);
+    expect([proxima.timeA, proxima.timeB]).toContain("T3");
+    expect([proxima.timeA, proxima.timeB]).not.toContain(proxima.sorteio?.timeQueSaiu);
+
+    const ladoQueVagou = proxima.sorteio?.timeQueSaiu === "T1" ? proxima.timeA : proxima.timeB;
+    expect(ladoQueVagou).toBe("T3");
   });
 
   it("o sorteio fica registrado e é reproduzível pela semente", () => {
@@ -106,10 +130,10 @@ describe("empate", () => {
     expect(proxima.explicacao).toContain("seguem em campo");
   });
 
-  it("com só duas equipes, o vencedor também não troca de adversário", () => {
+  it("com só duas equipes, o vencedor também não troca de adversário nem de lado", () => {
     const proxima = quemFicaEQuemSai(placar(2, 0), [], { semente: 1 });
 
-    expect([proxima.timeA, proxima.timeB].sort()).toEqual(["T1", "T2"]);
+    expect([proxima.timeA, proxima.timeB]).toEqual(["T1", "T2"]);
     expect(proxima.sairam).toEqual([]);
   });
 });

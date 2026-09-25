@@ -1,12 +1,20 @@
 /**
  * Geração equilibrada de times.
  *
- * Prioridade das regras, na ordem que o grupo definiu:
+ * O GOLEIRO É DO GOL, NÃO DO TIME. Ele não entra em time nenhum: fica no
+ * gol e a linha é que gira na frente dele com o "quem ganha fica". Com dois
+ * goleiros, cada um pega um gol e passa a noite ali; com três ou mais, eles
+ * se revezam entre as partidas (a regra do revezamento está em
+ * src/domain/goleiros.ts).
+ *
+ * É isso que faz 18 jogadores com 2 goleiros virarem 4 times de 4 em vez de
+ * 5 + 5 + 4 + 4: só os 16 de linha entram na divisão.
+ *
+ * Prioridade das regras da linha, na ordem que o grupo definiu:
  *
  *   1. equilíbrio das forças
- *   2. goleiros distribuídos (nunca sorteados junto com a linha)
- *   3. quantidade de jogadores por time
- *   4. variedade de companheiros em relação às rodadas anteriores
+ *   2. quantidade de jogadores por time
+ *   3. variedade de companheiros em relação às rodadas anteriores
  *
  * Peso e altura são guardados e entram como sinal de desempate com peso
  * mínimo. Eles NÃO são tratados como habilidade: um jogador não fica melhor
@@ -31,22 +39,23 @@ export interface JogadorParaSorteio {
   ehConvidado: boolean;
 }
 
+/** Um time é só a linha: o goleiro fica no gol, fora de qualquer time. */
 export interface TimeGerado {
   indice: number;
-  goleiro: JogadorParaSorteio | null;
   linha: JogadorParaSorteio[];
   somaDeNotas: number;
 }
 
 export interface ResultadoDoSorteio {
   times: TimeGerado[];
-  /** Quem ficou de fora (goleiro excedente, quando o admin escolhe assim). */
-  foraDoSorteio: JogadorParaSorteio[];
+  /**
+   * Os goleiros da rodada, do mais bem avaliado para o menos. Não pertencem
+   * a time nenhum: a ordem aqui é a ordem em que eles entram no gol.
+   */
+  goleiros: JogadorParaSorteio[];
   custo: number;
   avisos: string[];
 }
-
-export type DestinoDoGoleiroExtra = "linha" | "fora";
 
 export interface EntradaDoSorteio {
   jogadores: JogadorParaSorteio[];
@@ -55,7 +64,6 @@ export interface EntradaDoSorteio {
   /** Quantas vezes cada dupla já jogou junta nas últimas rodadas. */
   historicoDeDuplas?: Map<string, number>;
   semente: number;
-  goleiroExtra?: DestinoDoGoleiroExtra;
   /** Quantos arranjos diferentes tentar antes de escolher o melhor. */
   tentativas?: number;
 }
@@ -76,12 +84,8 @@ function variancia(valores: number[]): number {
   return media(valores.map((v) => (v - m) ** 2));
 }
 
-function todosDoTime(time: TimeGerado): JogadorParaSorteio[] {
-  return time.goleiro ? [time.goleiro, ...time.linha] : time.linha;
-}
-
 function recalcularSoma(time: TimeGerado): void {
-  time.somaDeNotas = todosDoTime(time).reduce((soma, j) => soma + j.nota, 0);
+  time.somaDeNotas = time.linha.reduce((soma, j) => soma + j.nota, 0);
 }
 
 /**
@@ -96,7 +100,7 @@ export function custoDoArranjo(
   historicoDeDuplas: Map<string, number>,
 ): number {
   const somas = times.map((t) => t.somaDeNotas);
-  const tamanhos = times.map((t) => todosDoTime(t).length);
+  const tamanhos = times.map((t) => t.linha.length);
 
   // 1. Equilíbrio: a diferença entre as forças dos times.
   const desequilibrio = variancia(somas);
@@ -111,7 +115,7 @@ export function custoDoArranjo(
   //    empatam na nota, ou todos entram no grupo ou nenhum entra. Cortar por
   //    posição criaria um "forte" e um "fraco" imaginários entre jogadores
   //    idênticos, e o sorteio passaria a perseguir uma diferença que não existe.
-  const todos = times.flatMap(todosDoTime).sort((a, b) => b.nota - a.nota);
+  const todos = times.flatMap((t) => t.linha).sort((a, b) => b.nota - a.nota);
   const corte = Math.max(1, Math.round(todos.length / 4));
 
   const limiteForte = todos[corte - 1]?.nota ?? 0;
@@ -123,7 +127,7 @@ export function custoDoArranjo(
   const varianciaDe = (grupo: Set<string>) =>
     grupo.size >= todos.length
       ? 0
-      : variancia(times.map((t) => todosDoTime(t).filter((j) => grupo.has(j.id)).length));
+      : variancia(times.map((t) => t.linha.filter((j) => grupo.has(j.id)).length));
 
   const concentracao = varianciaDe(fortes) + varianciaDe(fracos);
 
@@ -131,7 +135,7 @@ export function custoDoArranjo(
   let repeticao = 0;
   if (historicoDeDuplas.size > 0) {
     for (const time of times) {
-      const integrantes = todosDoTime(time);
+      const integrantes = time.linha;
       for (let i = 0; i < integrantes.length; i++) {
         for (let j = i + 1; j < integrantes.length; j++) {
           const a = integrantes[i];
@@ -144,11 +148,11 @@ export function custoDoArranjo(
 
   // 5. Sinal físico, com peso mínimo. Só desempata arranjos já equivalentes.
   const pesoMedio = times.map((t) => {
-    const comPeso = todosDoTime(t).filter((j) => j.pesoKg != null);
+    const comPeso = t.linha.filter((j) => j.pesoKg != null);
     return comPeso.length > 0 ? media(comPeso.map((j) => j.pesoKg as number)) : 0;
   });
   const alturaMedia = times.map((t) => {
-    const comAltura = todosDoTime(t).filter((j) => j.alturaCm != null);
+    const comAltura = t.linha.filter((j) => j.alturaCm != null);
     return comAltura.length > 0 ? media(comAltura.map((j) => j.alturaCm as number)) : 0;
   });
 
@@ -166,48 +170,28 @@ export function custoDoArranjo(
 }
 
 /**
- * Distribui os goleiros: um por time, do mais bem avaliado para o menos.
- * Goleiro nunca entra no sorteio da linha.
+ * Avisos sobre os goleiros.
+ *
+ * O sorteio não decide nada sobre eles — quem decide quem vai a cada gol é
+ * o revezamento, partida a partida. Aqui só se diz ao administrador o que
+ * ele precisa saber antes de a bola rolar.
  */
-function distribuirGoleiros(
-  goleiros: JogadorParaSorteio[],
-  times: TimeGerado[],
-  destinoDoExtra: DestinoDoGoleiroExtra,
-): { sobraram: JogadorParaSorteio[]; foraDoSorteio: JogadorParaSorteio[]; avisos: string[] } {
-  const ordenados = [...goleiros].sort((a, b) => b.nota - a.nota);
-  const avisos: string[] = [];
-
-  for (const time of times) {
-    const proximo = ordenados.shift();
-    if (proximo) time.goleiro = proximo;
+function avisosDosGoleiros(goleiros: JogadorParaSorteio[]): string[] {
+  if (goleiros.length === 0) {
+    return ["Nenhum goleiro confirmado. Combinem quem pega em cada gol."];
   }
-
-  const semGoleiro = times.filter((t) => !t.goleiro).length;
-  if (semGoleiro > 0) {
-    avisos.push(
-      semGoleiro === 1
-        ? "Um time ficou sem goleiro fixo. Combinem quem pega."
-        : `${semGoleiro} times ficaram sem goleiro fixo. Combinem quem pega.`,
-    );
+  if (goleiros.length === 1) {
+    return [
+      `Só ${goleiros[0]?.nome} está marcado como goleiro. ` +
+        "Um gol fica sem goleiro fixo — combinem quem pega.",
+    ];
   }
-
-  if (ordenados.length === 0) return { sobraram: [], foraDoSorteio: [], avisos };
-
-  if (destinoDoExtra === "fora") {
-    avisos.push(
-      ordenados.length === 1
-        ? "Sobrou um goleiro fora do sorteio."
-        : `Sobraram ${ordenados.length} goleiros fora do sorteio.`,
-    );
-    return { sobraram: [], foraDoSorteio: ordenados, avisos };
+  if (goleiros.length === 2) {
+    return ["Os dois goleiros ficam no gol a rodada toda; a linha é que gira."];
   }
-
-  avisos.push(
-    ordenados.length === 1
-      ? "Um goleiro entrou na linha."
-      : `${ordenados.length} goleiros entraram na linha.`,
-  );
-  return { sobraram: ordenados, foraDoSorteio: [], avisos };
+  return [
+    `${goleiros.length} goleiros: dois em campo por vez, revezando a cada partida.`,
+  ];
 }
 
 /**
@@ -346,20 +330,23 @@ function arranjoVazio(quantidadeDeTimes: number): TimeGerado[] {
 export function gerarTimesEquilibrados(entrada: EntradaDoSorteio): ResultadoDoSorteio {
   const quantidadeDeTimes = Math.max(1, Math.floor(entrada.quantidadeDeTimes));
   const historicoDeDuplas = entrada.historicoDeDuplas ?? new Map<string, number>();
-  const destinoDoExtra = entrada.goleiroExtra ?? "linha";
   const tentativas = Math.max(1, entrada.tentativas ?? 12);
 
   if (entrada.jogadores.length === 0) {
     return {
       times: arranjoVazio(quantidadeDeTimes),
-      foraDoSorteio: [],
+      goleiros: [],
       custo: 0,
       avisos: ["Nenhum jogador confirmado para sortear."],
     };
   }
 
-  const goleiros = entrada.jogadores.filter((j) => j.ehGoleiro);
-  const linhaBase = entrada.jogadores.filter((j) => !j.ehGoleiro);
+  // Do melhor avaliado para o menos: é a ordem em que eles entram no gol.
+  const goleiros = entrada.jogadores
+    .filter((j) => j.ehGoleiro)
+    .sort((a, b) => b.nota - a.nota);
+  const linha = entrada.jogadores.filter((j) => !j.ehGoleiro);
+  const avisos = avisosDosGoleiros(goleiros);
 
   // Várias tentativas com sementes diferentes: a busca local pode parar num
   // arranjo bom mas não ótimo, então geramos alguns e escolhemos entre os
@@ -370,19 +357,15 @@ export function gerarTimesEquilibrados(entrada: EntradaDoSorteio): ResultadoDoSo
     const aleatorio = geradorAleatorio(entrada.semente + tentativa * 7919);
     const times = arranjoVazio(quantidadeDeTimes);
 
-    const { sobraram, foraDoSorteio, avisos } = distribuirGoleiros(goleiros, times, destinoDoExtra);
-    for (const time of times) recalcularSoma(time);
-
     // A primeira tentativa parte do zigue-zague, que já nasce equilibrado.
     // As demais partem de arranjos aleatórios, para a busca local explorar
     // soluções diferentes em vez de convergir sempre para a mesma.
-    const paraSortear = [...linhaBase, ...sobraram];
-    if (tentativa === 0) distribuicaoInicial(paraSortear, times, aleatorio);
-    else distribuicaoAleatoria(paraSortear, times, aleatorio);
+    if (tentativa === 0) distribuicaoInicial(linha, times, aleatorio);
+    else distribuicaoAleatoria(linha, times, aleatorio);
 
     const custo = refinar(times, entrada.pesos, historicoDeDuplas);
 
-    candidatos.push({ times, foraDoSorteio, custo, avisos });
+    candidatos.push({ times, goleiros, custo, avisos });
   }
 
   // Entre os arranjos praticamente empatados, sorteamos um.

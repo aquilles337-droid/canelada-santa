@@ -14,7 +14,7 @@ with esperado(tipo, objeto) as (
     ('tabela','matches'),('tabela','match_events'),('tabela','player_rating_votes'),
     ('tabela','round_votes'),('tabela','memberships'),('tabela','charges'),
     ('tabela','payments'),('tabela','webhook_events'),('tabela','push_subscriptions'),
-    ('tabela','notifications'),('tabela','round_photos'),('tabela','achievements'),
+    ('tabela','notifications'),('tabela','round_photos'),('tabela','achievements'),('tabela','round_goalkeepers'),
     ('tabela','player_achievements'),('tabela','audit_logs'),('tabela','job_runs'),
     -- visões
     ('visao','v_player_rating'),('visao','v_round_vote_tally'),

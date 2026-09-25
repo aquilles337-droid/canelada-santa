@@ -126,6 +126,7 @@ supabase/migrations/0014_corrige_guarda_de_perfil.sql
 supabase/migrations/0015_sincroniza_mensalidade.sql
 supabase/migrations/0016_reabrir_cobranca.sql
 supabase/migrations/0017_corrige_estatisticas.sql
+supabase/migrations/0018_goleiros_no_gol.sql
 ```
 
 Depois rode o `supabase/seed.sql`, que cria a temporada atual e o catálogo de conquistas.
@@ -446,6 +447,28 @@ na linha acima.
 - Cada rodada guarda os **valores que valiam quando foi criada**. Mudar a mensalidade hoje
   não reescreve o que aconteceu mês passado.
 
+### Goleiro
+
+**O goleiro é do gol, não do time.** Ele não entra em time nenhum: fica no gol e a linha é que
+gira na frente dele com o "quem ganha fica". Quando o time perde, sai a linha — o goleiro
+continua ali e recebe a próxima.
+
+É isso que faz 18 confirmados com 2 goleiros virarem **4 times de 4**, e não 5 + 5 + 4 + 4: só
+os 16 de linha entram na divisão.
+
+| Goleiros na lista | O que acontece |
+|---|---|
+| Nenhum | Os dois gols ficam sem dono e o app avisa para combinarem |
+| Um | Ele pega um gol; o outro fica sem goleiro fixo |
+| Dois | Cada um no seu gol, a rodada toda |
+| Três ou mais | Dois em campo por vez, revezando a cada partida — entra sempre quem jogou menos |
+
+No revezamento, quem continua escalado **não troca de gol**: quem se mexe é a linha.
+
+A vitória do goleiro é contada pelo **lado que ele defendeu naquela partida**, não pelo time a
+que pertenceria. Numa noite de sete partidas ele joga por vários times diferentes, e cada
+partida registra quem estava em cada gol.
+
 ### Times
 
 - Goleiros são separados e distribuídos **um por time** — nunca entram no sorteio da linha.
@@ -573,6 +596,16 @@ por lá: ficaram travados na criação para não reescrever o que já foi cobrad
 
 **Marquei uma falta errada.**
 Marque de novo. A multa anterior é cancelada antes de qualquer nova ser criada.
+
+**Botei 18 vagas e 4 times. Como fica a divisão?**
+2 goleiros saem da conta e ficam nos gols; os 16 de linha viram 4 times de 4. Se aparecerem 3
+goleiros, são 15 de linha (4, 4, 4 e 3) e os goleiros se revezam. O número de vagas não divide
+nada sozinho — quem divide é quem apareceu confirmado, menos os goleiros.
+
+**O goleiro ganha o jogo junto com quem está na frente dele?**
+Ganha. Ele fica no gol e a linha gira; a vitória é contada pelo lado que ele defendeu naquela
+partida. Por isso o ranking dele soma direito mesmo tendo jogado com times diferentes na mesma
+noite.
 
 **O que acontece na virada do ano?**
 No dia configurado (10 de janeiro, por padrão) começa uma temporada nova e as estatísticas

@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { gerarTimesAction } from "@/server/actions/times";
 import { Botao } from "@/components/ui/Botao";
 import { useToast } from "@/components/ui/Toast";
 import { CartaoDeTime } from "./CartaoDeTime";
-import type { TimeComIntegrantes } from "@/server/services/times";
+import { CartaoDosGoleiros } from "./CartaoDosGoleiros";
+import type { GoleiroDaRodada, TimeComIntegrantes } from "@/server/services/times";
 
 /**
  * Controle do sorteio, no painel do administrador.
@@ -17,20 +18,21 @@ import type { TimeComIntegrantes } from "@/server/services/times";
 export function PainelDeTimes({
   rodadaId,
   times,
+  goleiros,
   textoParaCompartilhar,
 }: {
   rodadaId: string;
   times: TimeComIntegrantes[];
+  goleiros: GoleiroDaRodada[];
   textoParaCompartilhar: string;
 }) {
   const toast = useToast();
   const router = useRouter();
   const [gerando, iniciar] = useTransition();
-  const [goleiroExtra, setGoleiroExtra] = useState<"linha" | "fora">("linha");
 
   const gerar = () =>
     iniciar(async () => {
-      const resultado = await gerarTimesAction(rodadaId, goleiroExtra);
+      const resultado = await gerarTimesAction(rodadaId);
       if (resultado.ok) {
         toast.sucesso("Times sorteados!");
         router.refresh();
@@ -43,29 +45,15 @@ export function PainelDeTimes({
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-col gap-2">
-        <label className="flex items-center gap-3 rounded-xl border border-linha bg-carvao/60 px-4 py-3 text-sm">
-          <input
-            type="checkbox"
-            checked={goleiroExtra === "fora"}
-            onChange={(e) => setGoleiroExtra(e.target.checked ? "fora" : "linha")}
-            className="size-5 accent-[#c9a227]"
-          />
-          <span>
-            Goleiro que sobrar fica de fora
-            <span className="block text-xs text-cinza-escuro">
-              Desmarcado, o goleiro extra entra na linha.
-            </span>
-          </span>
-        </label>
-
-        <Botao tamanho="lg" larguraTotal carregando={gerando} onClick={gerar}>
-          {times.length > 0 ? "Gerar novamente" : "Gerar times"}
-        </Botao>
-      </div>
+      <Botao tamanho="lg" larguraTotal carregando={gerando} onClick={gerar}>
+        {times.length > 0 ? "Gerar novamente" : "Gerar times"}
+      </Botao>
 
       {times.length > 0 && (
         <>
+          {/* O goleiro vem antes dos times porque ele não está em nenhum. */}
+          <CartaoDosGoleiros goleiros={goleiros} />
+
           <div className="flex flex-col gap-3">
             {times.map((time) => (
               <CartaoDeTime key={time.id} time={time} mostrarNotas />

@@ -47,6 +47,7 @@ begin
   perform pg_temp.exigir_zero((select count(*) from public.round_participants), 'listas de presenca');
   perform pg_temp.exigir_zero((select count(*) from public.round_guests), 'convidados');
   perform pg_temp.exigir_zero((select count(*) from public.teams), 'times');
+  perform pg_temp.exigir_zero((select count(*) from public.round_goalkeepers), 'goleiros da rodada');
   perform pg_temp.exigir_zero((select count(*) from public.matches), 'partidas');
   perform pg_temp.exigir_zero((select count(*) from public.match_events), 'gols e assistencias');
   perform pg_temp.exigir_zero((select count(*) from public.round_votes), 'votos de craque e bagre');
