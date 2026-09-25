@@ -19,10 +19,22 @@ function atualizar(rodadaId: string): void {
   revalidatePath(`/racha/${rodadaId}/jogo`);
 }
 
-export async function abrirJogoAction(rodadaId: string): Promise<Resultado<{ partidaId: string }>> {
+/**
+ * Abre a primeira partida. Sem timeA/timeB entram os dois primeiros times;
+ * com eles, quem o administrador escolheu.
+ */
+export async function abrirJogoAction(
+  rodadaId: string,
+  timeA?: string,
+  timeB?: string,
+): Promise<Resultado<{ partidaId: string }>> {
   try {
     const admin = await exigirAdmin();
-    const partida = await abrirPrimeiraPartida(rodadaId, admin.id);
+    const partida = await abrirPrimeiraPartida(
+      rodadaId,
+      admin.id,
+      timeA && timeB ? { timeA, timeB } : undefined,
+    );
 
     atualizar(rodadaId);
     return sucesso({ partidaId: partida.id });

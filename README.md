@@ -480,6 +480,11 @@ partida registra quem estava em cada gol.
 
 ### Durante o jogo
 
+Ao abrir o modo jogo, o administrador escolhe **quais times começam** — um de cada lado. Por
+padrão vêm os dois primeiros, que são os mais fortes (o sorteio ordena por força), mas quem está
+na quadra costuma ter motivo para começar com outros dois. Quem não entra vai para a fila, na
+ordem dos times, e daí em diante manda o "quem ganha fica".
+
 - Quem ganha fica; quem perde sai.
 - No empate: com **duas ou mais equipes fora**, as duas que estavam em campo saem. Com
   **apenas uma equipe fora**, o aplicativo **sorteia** quem sai — e grava o sorteio no

@@ -25,7 +25,10 @@ export default async function PaginaModoJogo({ params }: { params: Promise<{ id:
       {estado.partidaAtual ? (
         <ModoJogo rodadaId={id} estado={estado} />
       ) : (
-        <AbrirJogo rodadaId={id} temTimes={estado.times.length >= 2} />
+        <AbrirJogo
+          rodadaId={id}
+          times={estado.times.map((t) => ({ id: t.id, name: t.name, color: t.color }))}
+        />
       )}
     </div>
   );

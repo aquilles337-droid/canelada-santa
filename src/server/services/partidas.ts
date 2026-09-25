@@ -96,8 +96,24 @@ export async function estadoDoJogo(rodadaId: string): Promise<EstadoDoJogo> {
   };
 }
 
-/** Cria a primeira partida: Time 1 contra Time 2, o resto na fila. */
-export async function abrirPrimeiraPartida(rodadaId: string, atorId: string): Promise<Match> {
+/** Quais times abrem o jogo. Sem escolha, entram os dois primeiros. */
+export interface QuemComeca {
+  timeA: string;
+  timeB: string;
+}
+
+/**
+ * Cria a primeira partida.
+ *
+ * Sem escolha, entram os dois primeiros times — que são os mais fortes, já
+ * que o sorteio ordena por força. O administrador pode escolher outros dois:
+ * quem não entra vai para a fila, na ordem dos times.
+ */
+export async function abrirPrimeiraPartida(
+  rodadaId: string,
+  atorId: string,
+  escolha?: QuemComeca,
+): Promise<Match> {
   const times = await timesDaRodada(rodadaId);
 
   if (times.length < 2) {
@@ -114,7 +130,26 @@ export async function abrirPrimeiraPartida(rodadaId: string, atorId: string): Pr
 
   if (jaExiste) return jaExiste;
 
-  return criarPartida(rodadaId, 1, times[0]!.id, times[1]!.id, atorId);
+  let timeA = times[0]!.id;
+  let timeB = times[1]!.id;
+
+  if (escolha) {
+    // A escolha vem da tela, então é dado de fora: confere que os dois times
+    // são desta rodada antes de deixar virar partida.
+    const daRodada = new Set(times.map((t) => t.id));
+
+    if (!daRodada.has(escolha.timeA) || !daRodada.has(escolha.timeB)) {
+      throw erroDeRegra("dados_invalidos", "Escolha dois times desta rodada.");
+    }
+    if (escolha.timeA === escolha.timeB) {
+      throw erroDeRegra("dados_invalidos", "Um time não joga contra ele mesmo.");
+    }
+
+    timeA = escolha.timeA;
+    timeB = escolha.timeB;
+  }
+
+  return criarPartida(rodadaId, 1, timeA, timeB, atorId);
 }
 
 /**
